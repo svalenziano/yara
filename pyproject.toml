@@ -1,0 +1,17 @@
+[project]
+name = "yara"
+version = "0.0.1"
+description = "Yet Another RAG App"
+authors = [
+    {name = "SValenziano",email = "senorvalenz@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
