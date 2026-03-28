@@ -1,5 +1,5 @@
-from db import pgvector
-from openai_embedding import generate_embedding
+from yara.db import pgvector
+from yara.openai_embedding import generate_embedding
 
 def formatDict(data: list[dict]) -> str:
     """

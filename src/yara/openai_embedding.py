@@ -1,4 +1,4 @@
-from openai_client import client
+from yara.openai_client import client
 
 def generate_embedding(text: str, verbose=False) -> list[float]:
     """

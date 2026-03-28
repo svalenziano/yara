@@ -70,20 +70,16 @@ def get_similar(embedding, top_k: int) -> list[dict]:
     return [dict(d) for d in get_dict(query, (embedding, top_k))]
 
 def test():
-    result = get_dict("""
+    print("Testing database connection...")
+    get_dict("""
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'public'
-    """
-    )
-
-    print(result)
+    """)
+    print(f"✅ Database Connected, {env['PG_DB_NAME']} table is present.\n")
 
 
-# RUN A TEST WHENEVER THE MODULE IS LOADED
-print("Testing database connection...")
-test()
-print("Database Connected 🙂")
+test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
 
 if __name__ == "__main__":
     pass
