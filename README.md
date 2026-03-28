@@ -2,17 +2,29 @@
 
 ## Overview
 
-`yara` is an assistant that helps answer questions about documents that you upload to it.
+`yara` is an assistant that helps answer questions about documents that you feed it.
+
+`yara` aims to be fast and simple. 
 
 ### Limitations
 
 Currently supported docs:
-
 1. Start with text only (markdown, txt, etc.)
 2. Add PDF support if there's time
 
-## Behaviors
+## MVP Todo
+- [ ] DB:
+	- [ ] just a Chunks table for now
+- [ ] Backend (no fancy CLI)
+	- [ ] Ingestion of multiple files into database
+		- [ ] For each ingestion, create a new project number and use that project number for every doc. (This is an alternative to destroying all chunks, in case I want to re-examine old chunks)
+	- [ ] Keyword querying of files in the DB (non-semantic, uses SQL queries)
+	- [ ] Add embedding onto ingestion
+	- [ ] Add semantic search of the DB
+- [ ] Interactive CLI
+	- [ ] Initiate ingestion: 
 
+## Behaviors
 Here's the flow:
 
 ```mermaid
@@ -24,7 +36,7 @@ Here's the flow:
         a-->b
         b-->c
         c--"repeat as desired"-->c
-        c--"for now, docs will be replaced entirely with the new docs"-->a
+        c-->a
 ```
 
 Here's some detail of the ingestion pipeline:
@@ -45,42 +57,32 @@ Here's some detail of the ingestion pipeline:
 This app is a learning project.  I will avoid the use of frameworks that abstract away important RAG concepts and LLM interactions that I wish to learn.
 
 Learning objectives:
-
 1. How to build a RAG app
 2. Building an interactive CLI
 3. Modular project architecture (without over-engineering)
+4. Advanced LLM methods like structured outputs, tool use, query classification
 
 ## Architecture
 
 Avoid:
-
 - The CLI should not be coupled with the underlying RAG functionality. Why? In the future I might want to add a Web UI instead of / in addition to the CLI.
 
-Layers of the cake (tentative architecture):
-
-```
-CLI
-/////////////////////////////////
-Business logic
-/////////////////////////////////
-Database / API Adapters
-```
-
-### v1
-
+### Layers of the cake (tentative architecture):
 App logic:
-
 - App: Main app logic
-  - Dat Ingestion
-  - Data Querying
-- OpenAI: Makes API calls to OpenAI
+	- Data Ingestion
+	- Data Querying
+- OpenAI adapters - make calls to OpenAI
+	- LLM
+	- Embedding
+- DB
+	- pgvector - i/o with Postgres pgvector DB
 - Config: loads environment vars
 
 User interface:
-
 - CLI: Invokes the application.  Orchestrates the CLI user experience
 
-### v0
+### Module Design (stub)
 
 ```mermaid
     classDiagram
@@ -96,32 +98,41 @@ User interface:
 ```
 
 ### Database ERD
+Items marked as Future are NOT part of the MVP
 
 ```mermaid
     erDiagram
-        CHUNKS {
+        chunk {
             bigint id PK
+            bigint doc_id FK "Future"
+            bigint project_id FK  "Future"
+            bigint project_id "Denormalized.  Do this for now."
             string filename "Just the filename and extension"
             string filepath "Just the system filepath, no filename or extension"
             string chunk_text "Raw chunk text, prior to embedding"
             vector embedding "pgvector embedding"
+            integer chunk_number "e.g. chunk 5 of x chunks"
+            integer total_chunks "e.g. this file was split into 10 chunks"
+            integer filesize "Filesize in bytes. For future file comparison / cache invalidation."
+            JSON metadata "Future: misc. metadata that may vary per doc"
+        }
+        
+        doc {
+	        bigint id PK "Future"
+        }
+        
+        project {
+	        bigint id PK "Future"
         }
 
-
 ```
-
 ### File storage
-
 No file storage.  User gives Python a filepath that points to a file or folder.
 
 Python will use that filepath to ingest the files into the DB, but it won't do anything with the original files, since the DB will contain everything we need to know about them.
 
 More info: see [brianstorm](./docs/file-storage-brainstorm.md)
 
-## Database Setup
+## Installation
 
 See [Docker setup](./docs/pgvector_docker_setup.md)
-
-poetry add openai, python-dotenv, tiktoken, psycopg2-binary, langchain-experimental, docling
-
-poetry add openai python-dotenv tiktoken psycopg2-binary langchain-experimental docling
