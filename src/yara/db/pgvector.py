@@ -88,14 +88,18 @@ def setup():
         finally:
             cur.close()
 
-
-
 def get_dict(query, params=()) -> list[RealDictRow]:
     with _database_connect() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(query, params)
             return cursor.fetchall()
-        
+
+def get_chunk_count() -> int:
+    query = """
+        SELECT count(id) FROM chunk;
+    """
+    return get_dict(query)[0]['count'] or 0
+
 def get_similar(embedding, top_k: int) -> list[dict]:
     """
     top_k = how many records to return?
@@ -114,6 +118,13 @@ def get_max_project_id() -> int:
         SELECT max(project_id) FROM chunk;
     """
     return get_dict(query)[0]['max'] or 0
+
+def _nuke_chunks():
+    result = get_dict("""
+        DELETE FROM chunk RETURNING project_id;
+    """)
+    delete_count = len(result)
+    print(f"📦 Deleted all {delete_count} from the table.")
 
 def insert_chunks(bundles: Iterable[FileChunkBundle], project_id=1) -> int:
     """
@@ -158,16 +169,15 @@ def insert_chunks(bundles: Iterable[FileChunkBundle], project_id=1) -> int:
     return insert_count
 
 def test():
-    print("Testing database connection...")
+    print("📦 Testing database connection...")
     result = get_dict("""
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'public'
     """)
     tables = [t['table_name'] for t in result]
-    print(f"  ✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
-    print(f"  ✅ Tables found: {", ".join(tables)}")
-
+    print(f"    ✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
+    print(f"    ✅ Tables found: {", ".join(tables)}")
 
 test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
 

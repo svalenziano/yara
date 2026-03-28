@@ -5,7 +5,7 @@ from collections.abc import Generator
 
 from yara.config import env
 from yara.services.chunk import Chunk, FileChunkBundle
-from yara.db.pgvector import insert_chunks
+from yara.db.pgvector import insert_chunks, get_chunk_count
 
 """
 ALGO
@@ -31,11 +31,12 @@ FUNCTIONS:
 
 """
 
-
+LIMIT: int | None = 50
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
 
 def _mock_vector() -> list[float]:
-    return [random.random() for _ in env['VECTOR_DIMS']]
+    vector_dimensions = int(env['VECTOR_DIMS'])
+    return [random.random() for _ in range(vector_dimensions)]
 
 def _has_extension(
     filename: str, 
@@ -49,35 +50,43 @@ def _has_extension(
 def _get_all_filepaths(
         directory: str, 
         extensions:list[str]= ["md", "txt"], 
-        limit=50
+        limit=LIMIT,
+        verbose=True,
     ) -> list[str]:
     """
     Walk the directory recursively and return paths matching `extensions`, up to `limit`.
     """
+    if not os.path.isdir(directory):                                                       
+      raise ValueError(f"Directory does not exist: {directory}")  
     found: list[str] = []
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
+            if limit and len(found) >= limit:
+                break
             if _has_extension(filename, extensions):
                 found.append(os.path.join(dirpath, filename))
-                if len(found) >= limit:
-                    return found
+
         dirnames[:] = [d for d in dirnames if "." not in d]
+    if verbose: print(f"Found {len(found)} files.")
     return found
+
+def _get_file_metadata(filename: str):
+    # NOT IMPELMENTED
+    return {"data": "this feature not yet implemented"}
 
 def _chunkify_file(filename: str) -> FileChunkBundle:
     """
-    Input = a single block of text
     Output = 🚨 Currently outputs one chunk per file
     
     **TODO IMPLEMENT CHUNKING LOGIC**
     USE LANCHAIN'S CHUNKER
     """
     file = FileChunkBundle(
-        dir_path="tktk",
+        dir_path=os.path.dirname(filename),
         filename=os.path.basename(filename),
         chunks=[],
-        filesize=123,
-        metadata={}
+        filesize=os.path.getsize(filename),
+        metadata=_get_file_metadata(filename)
     )
 
     current_chunk = 0
@@ -155,8 +164,9 @@ def ingest_files_to_db(directory_path: str) -> None:
 
 
 if __name__ == "__main__":
-    path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/01_Intake/"
+    path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
     ingest_files_to_db(path)
+    print(f"📦 Total chunk count: {get_chunk_count()}")
 
 
 
