@@ -126,7 +126,10 @@ def _nuke_chunks():
     delete_count = len(result)
     print(f"📦 Deleted all {delete_count} from the table.")
 
-def insert_chunks(bundles: Iterable[FileChunkBundle], project_id=1) -> int:
+def insert_chunks(
+        bundles: Iterable[FileChunkBundle], 
+        project_id=get_max_project_id() + 1
+    ) -> int:
     """
     Returns: number of successful insertions
     **TODO = make project_id dynamic**
