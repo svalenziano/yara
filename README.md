@@ -137,7 +137,7 @@ More info: see [brianstorm](./docs/file-storage-brainstorm.md)
 
 ## Installation
 Start Postgres:
-```
+```bash
 docker compose up -d
 ```
 
@@ -149,8 +149,15 @@ psql -h localhost -p 8888 -U postgres
 ```
 
 Setup tables in the database:
-```
+```bash
 python -m yara.db.setup_db
+```
+
+If changes are made to the schema, you should do:
+```
+docker compose down -v  # removes volumes
+
+# Also, re-do the setup steps listed above!
 ```
 
 
