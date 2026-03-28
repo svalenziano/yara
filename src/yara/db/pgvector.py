@@ -25,7 +25,31 @@ def _database_connect():
         if connection:
             connection.close()
 
+def nuke():
+    prompt = "Are you sure you wish to nuke and reset the DB? (y/n)?"
+
+    if input(prompt).lower() != 'y':
+        print("Aborting")
+        return
+    print("Nuking the DB...")
+
+    with _database_connect() as conn:
+        cur = conn.cursor()
+        try:
+            for table in [
+                'chunk',
+            ]:
+                cur.execute(f"DROP TABLE IF EXISTS {table}")
+                print(f"✅ DROP TABLE {table}")
+
+        except Exception as e:
+            print("Error durring database setup")
+            raise(e)
+        finally:
+            cur.close()
+
 def setup():
+    print("Executing DB setup...")
     with _database_connect() as conn:
         cur = conn.cursor()
         try:
@@ -41,14 +65,19 @@ def setup():
                     chunk_number INTEGER NOT NULL,
                     total_chunks INTEGER NOT NULL,
                     filesize INTEGER NOT NULL,
-                    metadata JSONB NOT NULL
+                    metadata JSONB DEFAULT '{{}}'::jsonb,
+                    created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    modified TIMESTAMP DEFAULT NULL
                 );
             """, )
+            print(f"✅ Database Setup complete\n")
+
         except Exception as e:
             print("Error durring database setup")
             raise(e)
         finally:
             cur.close()
+            
 
 def get_dict(query, params=()) -> list[RealDictRow]:
     with _database_connect() as connection:
@@ -69,17 +98,25 @@ def get_similar(embedding, top_k: int) -> list[dict]:
     """
     return [dict(d) for d in get_dict(query, (embedding, top_k))]
 
+def get_max_project_id():
+    query = """
+        SELECT max(project_id) FROM chunk;
+    """
+    return get_dict(query)[0]['max'] or 0
+
 def test():
     print("Testing database connection...")
-    get_dict("""
+    result = get_dict("""
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'public'
     """)
-    print(f"✅ Database Connected, {env['PG_DB_NAME']} table is present.\n")
+    tables = [t['table_name'] for t in result]
+    print(f"✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
+    print(f"✅ Tables found: {", ".join(tables)}")
 
 
 test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
 
 if __name__ == "__main__":
-    pass
+    print(get_max_project_id())

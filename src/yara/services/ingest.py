@@ -13,6 +13,8 @@ ALGO
 
 FUNCTIONS:
     DO NOW:
+        - push file to database
+
         - postgres.py module
             - get_max_project_id()
             - add_chunk()
@@ -87,7 +89,25 @@ def chunkify(text: str) -> list[str]:
     
     return [text]  # PLACEHOLDER: RETURN ONE-CHUNK FOR NOW 
 
-
+def push_to_db(text):
+    """
+        - Input: filename
+    - Side effect: push file chunks and metadata to database
+    - Algo:
+        
+        - chunks = chunkify()
+        - for each chunk:
+            - insert_chunk (pgvector.py)
+                - push to DB
+                    filename
+                    dir_path
+                    chunk_text
+                    embedding
+                    chunk_number
+                    total_chunks
+                    filesize
+                    metadata = {}
+    """
 
 
 
