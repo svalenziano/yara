@@ -12,6 +12,12 @@ Currently supported docs:
 1. Start with text only (markdown, txt, etc.)
 2. Add PDF support if there's time
 
+## Get started
+See "Installation" below, activate the virtual environment, and then do:
+```
+python -m yara.main
+```
+
 ## MVP Todo
 - [ ] Is the app running?
 - [ ] DB:
@@ -55,7 +61,7 @@ Here's some detail of the ingestion pipeline:
 
 ## Learning Goals
 
-This app is a learning project.  I will avoid the use of frameworks that abstract away important RAG concepts and LLM interactions that I wish to learn. 
+This app is a learning project.  I will avoid the use of frameworks that abstract away important RAG concepts and LLM interactions that I wish to learn.
 
 Learning objectives:
 1. How to build a RAG app
@@ -101,7 +107,6 @@ User interface:
 ### Database ERD
 Items marked as Future are NOT part of the MVP
 
-Note: needs to be updated.
 ```mermaid
     erDiagram
         chunk {
@@ -159,7 +164,6 @@ docker compose down -v  # removes volumes
 
 # Also, re-do the setup steps listed above!
 ```
-
 
 
 More info, see [Docker setup](./docs/pgvector_docker_setup.md)
