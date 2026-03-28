@@ -45,7 +45,7 @@ docker compose down -v    # stop and delete volume (wipes all data)
 
 **psql:**
 ```bash
-psql -h localhost -p 8888 -U postgres -W
+psql -h localhost -p 8888 -U postgres
 ```
 
 **Python (psycopg2):**

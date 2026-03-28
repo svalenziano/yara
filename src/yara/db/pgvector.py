@@ -58,5 +58,11 @@ def test():
 
     print(result)
 
+
+# RUN A TEST WHENEVER THE MODULE IS LOADED
+print("Testing database connection...")
+test()
+print("Database Connected 🙂")
+
 if __name__ == "__main__":
     pass
