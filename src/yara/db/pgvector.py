@@ -32,7 +32,7 @@ def setup():
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
             cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS chunk (
-                    id SERIAL PRIMARY KEY,
+                    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                     project_id BIGINT NOT NULL,
                     filename VARCHAR(500) NOT NULL,
                     dir_path VARCHAR(500) NOT NULL,
@@ -40,7 +40,7 @@ def setup():
                     embedding VECTOR({env['VECTOR_DIMS']}) NOT NULL,
                     chunk_number INTEGER NOT NULL,
                     total_chunks INTEGER NOT NULL,
-                filesize INTEGER NOT NULL,
+                    filesize INTEGER NOT NULL,
                     metadata JSONB NOT NULL
                 );
             """, )
