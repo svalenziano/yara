@@ -7,7 +7,7 @@ class Chunk():
     chunk_number: int
 
 @dataclass
-class File():
+class FileChunkBundle():
     dir_path: str
     filename: str
     chunks: list[Chunk]

@@ -1,7 +1,7 @@
 import os
 from pprint import pp
 from collections.abc import Generator
-from yara.services.chunk import Chunk, File
+from yara.services.chunk import Chunk, FileChunkBundle
 
 """
 ALGO
@@ -57,7 +57,7 @@ def get_all_filepaths(
         dirnames[:] = [d for d in dirnames if "." not in d]
     return found
 
-def chunkify_files(filepaths: list[str]) -> Generator[str, None, None]:
+def chunkify_files(filepaths: list[str]) -> Generator[FileChunkBundle, None, None]:
     """
     Yields the text from each file.
 
@@ -68,8 +68,8 @@ def chunkify_files(filepaths: list[str]) -> Generator[str, None, None]:
     error_paths = []
     for path in filepaths:
         try:
-            with open(path, encoding="utf-8") as f:
-                yield f.read()
+            file_bundle = chunkify_file(path)
+            yield file_bundle
         except IOError as e:
             errors.append(e)
             error_paths.append(path)
@@ -79,15 +79,15 @@ def chunkify_files(filepaths: list[str]) -> Generator[str, None, None]:
             print(p)
         raise IOError(errors)
 
-def chunkify_file(filename: str) -> File:
+def chunkify_file(filename: str) -> FileChunkBundle:
     """
     Input = a single block of text
     Output = 🚨 Currently outputs one chunk per file
     
-    TODO IMPLEMENT CHUNKING LOGIC
-        # USE LANCHAIN'S CHUNKER
+    **TODO IMPLEMENT CHUNKING LOGIC**
+    USE LANCHAIN'S CHUNKER
     """
-    file = File(
+    file = FileChunkBundle(
         dir_path="tktk",
         filename=os.path.basename(filename),
         chunks=[],
@@ -98,11 +98,11 @@ def chunkify_file(filename: str) -> File:
     current_chunk = 0
 
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             # TODO - IMPLEMENT ACTUAL CHUNKING!
             current_chunk += 1
 
-            File.chunks.append(Chunk(
+            file.chunks.append(Chunk(
                 chunk_text=f.read(), 
                 embedding=[1,2,3], 
                 chunk_number=current_chunk,
@@ -141,11 +141,11 @@ if __name__ == "__main__":
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/01_Intake/"
     # pp(get_all_filepaths(path, limit=20))
 
-    paths = get_all_filepaths(path, limit=20)
+    paths = get_all_filepaths(path, limit=5)
+    print(paths)
 
-    for path in paths:
-        c = chunkify_file(path)
-        pp(c)
+    for file_bundle in chunkify_files(paths):
+        pp(file_bundle)
 
 
     
