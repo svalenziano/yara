@@ -3,7 +3,7 @@ services:
     image: pgvector/pgvector:pg17-bookworm
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
-      PG_DB_NAME=yara
+      POSTGRES_DB: yara
     ports:
       - "8888:5432"
     volumes:

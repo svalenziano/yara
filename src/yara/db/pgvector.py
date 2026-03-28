@@ -71,13 +71,9 @@ def get_similar(embedding, top_k: int) -> list[dict]:
 
 def test():
     result = get_dict("""
-    SELECT id,
-           book_title,
-           chapter_title,
-           chapter_url,
-           substr(embedding::text, 1, 50) || '...' as truncated_embedding
-    FROM book_chapter
-    LIMIT 15;
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
     """
     )
 
