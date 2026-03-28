@@ -1,3 +1,5 @@
+import os
+
 """
 ALGO
     - Given filepath, generate list of files that match the file extension filter
@@ -26,3 +28,27 @@ FUNCTIONS:
 
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
 
+def has_extension(filename: str, extensions=['md', 'txt']) -> bool:
+    for extension in extensions:
+        if filename.endswith(extension):
+            return True
+    return False
+
+def get_files(directory: str, extensions= ["md", "txt"], limit=50) -> list[str]:
+    """
+    - walk the directory recursively
+        - for each filename:
+            - if has_extension(filename):
+                - add dirpath + "." + filename to `found`
+        - for each dirname:
+            - recurse into the directory
+        - 
+    - push each file that matches one of the `extensions` onto `found`
+    """
+    found: list[str] = []
+    while len(found) < limit:
+        for dirpath, dirnames, filenames in os.walk(directory):
+            # TKTKTKTK
+            pass
+
+    return found
