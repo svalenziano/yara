@@ -11,6 +11,7 @@ class Env(TypedDict):
     PG_HOST: str
     PG_PORT: str
     PG_DB_NAME: str
+    VECTOR_DIMS:str
 
 
 env: Env = {}  # type: ignore[typeddict-item]  # import this object into your module
@@ -34,4 +35,3 @@ for key in expected_env_vars:
 
 if misses:
     raise Exception(f"Some env vars were not found: {", ".join(misses)}")
-

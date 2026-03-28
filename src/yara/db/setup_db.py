@@ -1,26 +1,8 @@
 # from pgvector import _database_connect
 from yara.db.pgvector import _database_connect
-from psycopg2.extras import RealDictCursor, RealDictRow
+from yara.config import env
 
-def get_dict(query, params=()) -> list[RealDictRow]:
-    with _database_connect() as conn:
-        cur = conn.cursor()
-        try:
-            cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS chunk (
-                    id SERIAL PRIMARY KEY,
-                    project_id bigint NOT NULL,
-                    filename varchar(500) NOT NULL,
-                    filepath varchar(500) NOT NULL,
-                    
-                );
-            """)
-        except Exception as e:
-            print("Error durring database setup")
-            raise(e)
-        finally:
-            cur.close()
+
 
 # conn = psycopg2.connect(
 #     host="localhost",

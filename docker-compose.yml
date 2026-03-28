@@ -2,8 +2,8 @@ services:
   db:
     image: pgvector/pgvector:pg17-bookworm
     environment:
-      # POSTGRES_PASSWORD: hannaboops
       POSTGRES_HOST_AUTH_METHOD: trust
+      PG_DB_NAME=yara
     ports:
       - "8888:5432"
     volumes:

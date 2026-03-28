@@ -25,6 +25,31 @@ def _database_connect():
         if connection:
             connection.close()
 
+def setup():
+    with _database_connect() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS chunk (
+                    id SERIAL PRIMARY KEY,
+                    project_id BIGINT NOT NULL,
+                    filename VARCHAR(500) NOT NULL,
+                    dir_path VARCHAR(500) NOT NULL,
+                    chunk_text TEXT NOT NULL,
+                    embedding VECTOR(%s) NOT NULL,
+                    chunk_number INTEGER NOT NULL,
+                    total_chunks INTEGER NOT NULL,
+                    filesize INTEGER NOT NULL,
+                    metadata JSONB NOT NULL
+                );
+            """, env['VECTOR_DIMS'])
+        except Exception as e:
+            print("Error durring database setup")
+            raise(e)
+        finally:
+            cur.close()
+
 def get_dict(query, params=()) -> list[RealDictRow]:
     with _database_connect() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
