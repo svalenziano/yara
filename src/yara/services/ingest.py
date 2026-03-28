@@ -6,6 +6,7 @@ from collections.abc import Generator
 from yara.config import env
 from yara.services.chunk import Chunk, FileChunkBundle
 from yara.db.pgvector import insert_chunks, get_chunk_count
+from yara.services.openai_embedding import generate_embedding
 
 """
 ALGO
@@ -18,20 +19,12 @@ ALGO
 
 FUNCTIONS:
     DO NOW:
-        - push files to database (keep db connection open for entire process)
-
-        - postgres.py module
-            - get_max_project_id()
-            - add_chunk()
-        - ingest_chunks(directory) -> str (result message)
-            - get files from dir
-            - for each file in files, add chunks to postgres
-    DO LATER:
         - chunkify (see below)
 
 """
 
-LIMIT: int | None = 50
+LIMIT: int | None = 10
+VERBOSE = env['VERBOSE']
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
 
 def _mock_vector() -> list[float]:
@@ -51,7 +44,7 @@ def _get_all_filepaths(
         directory: str, 
         extensions:list[str]= ["md", "txt"], 
         limit=LIMIT,
-        verbose=True,
+        verbose=VERBOSE,
     ) -> list[str]:
     """
     Walk the directory recursively and return paths matching `extensions`, up to `limit`.
@@ -95,10 +88,10 @@ def _chunkify_file(filename: str) -> FileChunkBundle:
         with open(filename, encoding="utf-8") as f:
             # TODO - IMPLEMENT ACTUAL CHUNKING!
             current_chunk += 1
-
+            text = f.read()
             file.chunks.append(Chunk(
-                chunk_text=f.read(), 
-                embedding=_mock_vector(), 
+                chunk_text=text, 
+                embedding=generate_embedding(text, verbose=VERBOSE), 
                 chunk_number=current_chunk,
             ))
 
@@ -132,7 +125,8 @@ def _chunkify_files(
             print(p)
         raise IOError(errors)
 
-def ingest_files_to_db(directory_path: str) -> None:
+def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
+    if verbose: print(f"\n⌛ Ingesting files...")
     """
     - Side effect: push file chunks and metadata to database
     - Algo:
@@ -159,13 +153,13 @@ def ingest_files_to_db(directory_path: str) -> None:
     if inserted_rows != len(paths):
         raise Exception(f"❌ Expected {len(paths)} insertions, got {inserted_rows}")
 
-    print(f"✅ INSERTED {inserted_rows} rows.")
+    if verbose: print(f"\n✅ INSERTED {inserted_rows} rows.")
             
 
 
 if __name__ == "__main__":
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
-    ingest_files_to_db(path)
+    ingest_files_to_db(path, )
     print(f"📦 Total chunk count: {get_chunk_count()}")
 
 

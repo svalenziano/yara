@@ -11,27 +11,37 @@ class Env(TypedDict):
     PG_HOST: str
     PG_PORT: str
     PG_DB_NAME: str
-    VECTOR_DIMS:str
+    VECTOR_DIMS:int
+    VERBOSE: bool
 
 
-env: Env = {}  # type: ignore[typeddict-item]  # import this object into your module
+def load_from_environment():
+    env: Env = {}  # type: ignore[typeddict-item]  # import this object into your module
 
-# LOAD VARS FROM ENVIRONMENT
-# Beware verbose logging, which may log your API keys
-load_dotenv(override=True, verbose=False)
+        
 
-expected_env_vars = list(Env.__annotations__)
+    # LOAD VARS FROM ENVIRONMENT
+    # Beware verbose logging, which may log your API keys
+    load_dotenv(override=True, verbose=False)
 
-misses = []
+    expected_env_vars = list(Env.__annotations__)
 
-for key in expected_env_vars:
-    if key in env:
-        raise ValueError(f"Key '{key}' was found in both your config.py and the environment.  It should only exist in one location.")
-    found = os.getenv(key)
-    if found != None:  # Keys with empty strings will follow this code path
-        env[key] = found
-    else:
-        misses.append(key)        
+    misses = []
 
-if misses:
-    raise Exception(f"Some env vars were not found: {", ".join(misses)}")
+    for key in expected_env_vars:
+        if key in env:
+            raise ValueError(f"Key '{key}' was found in both your config.py and the environment.  It should only exist in one location.")
+        found = os.getenv(key)
+        if found != None:  # Keys with empty strings will follow this code path
+            env[key] = found
+        else:
+            misses.append(key)        
+
+    if misses:
+        raise Exception(f"Some env vars were not found: {", ".join(misses)}")
+
+    return env
+
+
+env = load_from_environment()
+env["VECTOR_DIMS"] = int(env['VECTOR_DIMS'])
