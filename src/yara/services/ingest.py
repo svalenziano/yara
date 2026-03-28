@@ -95,7 +95,7 @@ def chunkify(filename: str) -> list[Chunk]:
         metadata={}
     )
 
-    current_chunk = 0
+    current_chunk = 1
     chunks = []
 
     try:
@@ -116,7 +116,7 @@ def chunkify(filename: str) -> list[Chunk]:
 
     return chunks
 
-def push_to_db(filename: str) -> None:
+def push_file_to_db(filename: str) -> None:
     """
     - Input: filename
     - Side effect: push file chunks and metadata to database
@@ -140,12 +140,13 @@ def push_to_db(filename: str) -> None:
 
 if __name__ == "__main__":
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/01_Intake/"
-    pp(get_all_filepaths(path, limit=20))
+    # pp(get_all_filepaths(path, limit=20))
 
     paths = get_all_filepaths(path, limit=20)
 
-    for text in read_files(paths):
-        print(text[:20])
+    for path in paths:
+        c = chunkify(path)
+        pp(c)
 
 
     
