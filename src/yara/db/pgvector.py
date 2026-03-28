@@ -1,6 +1,6 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor, RealDictRow
-from config import env
+from yara.config import env
 from contextlib import contextmanager
 
 @contextmanager
@@ -30,20 +30,20 @@ def setup():
         cur = conn.cursor()
         try:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cur.execute("""
+            cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS chunk (
                     id SERIAL PRIMARY KEY,
                     project_id BIGINT NOT NULL,
                     filename VARCHAR(500) NOT NULL,
                     dir_path VARCHAR(500) NOT NULL,
                     chunk_text TEXT NOT NULL,
-                    embedding VECTOR(%s) NOT NULL,
+                    embedding VECTOR({env['VECTOR_DIMS']}) NOT NULL,
                     chunk_number INTEGER NOT NULL,
                     total_chunks INTEGER NOT NULL,
-                    filesize INTEGER NOT NULL,
+                filesize INTEGER NOT NULL,
                     metadata JSONB NOT NULL
                 );
-            """, env['VECTOR_DIMS'])
+            """, )
         except Exception as e:
             print("Error durring database setup")
             raise(e)
