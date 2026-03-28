@@ -1,6 +1,7 @@
 import os
 from pprint import pp
 from collections.abc import Generator
+from yara.services.chunk import Chunk, File
 
 """
 ALGO
@@ -78,20 +79,46 @@ def read_files(filepaths: list[str]) -> Generator[str, None, None]:
             print(p)
         raise IOError(errors)
 
-def chunkify(text: str) -> list[str]:
+def chunkify(filename: str) -> list[Chunk]:
     """
     Input = a single block of text
-    Output = list of chunks
-    """
-    # TODO IMPLEMENT CHUNKING LOGIC
-
-    # USE LANCHAIN'S CHUNKER
+    Output = 🚨 Currently outputs one chunk per file
     
-    return [text]  # PLACEHOLDER: RETURN ONE-CHUNK FOR NOW 
-
-def push_to_db(text):
+    TODO IMPLEMENT CHUNKING LOGIC
+        # USE LANCHAIN'S CHUNKER
     """
-        - Input: filename
+    file = File(
+        dir_path="tktk",
+        filename=os.path.basename(filename),
+        chunk_count=0,
+        filesize=123,
+        metadata={}
+    )
+
+    current_chunk = 0
+    chunks = []
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            # TODO - IMPLEMENT ACTUAL CHUNKING!
+
+            chunks.append(Chunk(
+                f.read(), 
+                [1,2,3], 
+                current_chunk, 
+                file=file))
+            current_chunk += 1
+    except IOError as e:
+        e.filename = filename
+        raise e
+    
+    file.chunk_count = current_chunk - 1
+
+    return chunks
+
+def push_to_db(filename: str) -> None:
+    """
+    - Input: filename
     - Side effect: push file chunks and metadata to database
     - Algo:
         
@@ -108,7 +135,7 @@ def push_to_db(text):
                     filesize
                     metadata = {}
     """
-
+    pass
 
 
 if __name__ == "__main__":
