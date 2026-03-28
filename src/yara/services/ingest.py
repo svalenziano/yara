@@ -57,7 +57,7 @@ def get_all_filepaths(
         dirnames[:] = [d for d in dirnames if "." not in d]
     return found
 
-def read_files(filepaths: list[str]) -> Generator[str, None, None]:
+def chunkify_files(filepaths: list[str]) -> Generator[str, None, None]:
     """
     Yields the text from each file.
 
@@ -79,7 +79,7 @@ def read_files(filepaths: list[str]) -> Generator[str, None, None]:
             print(p)
         raise IOError(errors)
 
-def chunkify(filename: str) -> list[Chunk]:
+def chunkify_file(filename: str) -> File:
     """
     Input = a single block of text
     Output = 🚨 Currently outputs one chunk per file
@@ -90,31 +90,30 @@ def chunkify(filename: str) -> list[Chunk]:
     file = File(
         dir_path="tktk",
         filename=os.path.basename(filename),
-        chunk_count=0,
+        chunks=[],
         filesize=123,
         metadata={}
     )
 
-    current_chunk = 1
-    chunks = []
+    current_chunk = 0
 
     try:
         with open(path, encoding="utf-8") as f:
             # TODO - IMPLEMENT ACTUAL CHUNKING!
-
-            chunks.append(Chunk(
-                f.read(), 
-                [1,2,3], 
-                current_chunk, 
-                file=file))
             current_chunk += 1
+
+            File.chunks.append(Chunk(
+                chunk_text=f.read(), 
+                embedding=[1,2,3], 
+                chunk_number=current_chunk,
+            ))
+
     except IOError as e:
         e.filename = filename
         raise e
-    
-    file.chunk_count = current_chunk - 1
 
-    return chunks
+    return file
+
 
 def push_file_to_db(filename: str) -> None:
     """
@@ -145,7 +144,7 @@ if __name__ == "__main__":
     paths = get_all_filepaths(path, limit=20)
 
     for path in paths:
-        c = chunkify(path)
+        c = chunkify_file(path)
         pp(c)
 
 
