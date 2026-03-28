@@ -13,3 +13,7 @@ class FileChunkBundle():
     chunks: list[Chunk]
     filesize: int
     metadata: dict  # misc metadata
+
+    @property
+    def total_chunks(self):
+        return len(self.chunks)

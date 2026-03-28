@@ -1,10 +1,20 @@
-import psycopg2
-from psycopg2.extras import RealDictCursor, RealDictRow
-from yara.config import env
+from collections.abc import Iterable
 from contextlib import contextmanager
+
+import psycopg2
+from psycopg2.extras import RealDictCursor, RealDictRow, Json
+
+from yara.config import env
+from yara.services.chunk import FileChunkBundle
 
 @contextmanager
 def _database_connect():
+    """
+    Commits on successful exit.
+
+    psycopg2 autocommit is off by default:
+    changes will be rolled back in the event of an error.
+    """
     connection = None
     try:
         connection = psycopg2.connect(
@@ -17,9 +27,9 @@ def _database_connect():
         yield connection
         connection.commit()
     except Exception as e:
-        print("Database error: ", e)
+        print("📦 Database error: ", e)
         if connection:
-            connection.rollback()
+            connection.rollback() # explicit rollback: fine but not necessary?
         raise
     finally:
         if connection:
@@ -77,7 +87,8 @@ def setup():
             raise(e)
         finally:
             cur.close()
-            
+
+
 
 def get_dict(query, params=()) -> list[RealDictRow]:
     with _database_connect() as connection:
@@ -98,11 +109,53 @@ def get_similar(embedding, top_k: int) -> list[dict]:
     """
     return [dict(d) for d in get_dict(query, (embedding, top_k))]
 
-def get_max_project_id():
+def get_max_project_id() -> int:
     query = """
         SELECT max(project_id) FROM chunk;
     """
     return get_dict(query)[0]['max'] or 0
+
+def insert_chunks(bundles: Iterable[FileChunkBundle], project_id=1) -> int:
+    """
+    Returns: number of successful insertions
+    **TODO = make project_id dynamic**
+    **TODO Optimization = executemany() or psycopg2.extras.execute_values() ?**
+    """
+
+    insert_count = 0
+    query = """
+    INSERT INTO chunk (
+        project_id,
+        filename,
+        dir_path,
+        chunk_text,
+        embedding,
+        chunk_number,
+        total_chunks,
+        filesize,
+        metadata
+    )
+    VALUES (
+        %s, %s, %s, %s, %s, %s, %s, %s, %s
+    )
+    """
+    with _database_connect() as connection:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            for file in bundles:
+                for chunk in file.chunks:
+                    cursor.execute(query, (
+                        project_id,
+                        file.filename,
+                        file.dir_path,
+                        chunk.chunk_text,
+                        chunk.embedding,
+                        chunk.chunk_number,
+                        file.total_chunks,
+                        file.filesize,
+                        Json(file.metadata)
+                    ))
+                    insert_count += 1
+    return insert_count
 
 def test():
     print("Testing database connection...")
@@ -112,8 +165,8 @@ def test():
         WHERE table_schema = 'public'
     """)
     tables = [t['table_name'] for t in result]
-    print(f"✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
-    print(f"✅ Tables found: {", ".join(tables)}")
+    print(f"  ✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
+    print(f"  ✅ Tables found: {", ".join(tables)}")
 
 
 test()  # RUN A TEST WHENEVER THE MODULE IS LOADED

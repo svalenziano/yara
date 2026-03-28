@@ -1,7 +1,11 @@
 import os
+import random
 from pprint import pp
 from collections.abc import Generator
+
+from yara.config import env
 from yara.services.chunk import Chunk, FileChunkBundle
+from yara.db.pgvector import insert_chunks
 
 """
 ALGO
@@ -14,7 +18,7 @@ ALGO
 
 FUNCTIONS:
     DO NOW:
-        - push file to database
+        - push files to database (keep db connection open for entire process)
 
         - postgres.py module
             - get_max_project_id()
@@ -30,7 +34,10 @@ FUNCTIONS:
 
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
 
-def has_extension(
+def _mock_vector() -> list[float]:
+    return [random.random() for _ in env['VECTOR_DIMS']]
+
+def _has_extension(
     filename: str, 
     extensions=['md', 'txt']
     ) -> bool:
@@ -39,7 +46,7 @@ def has_extension(
             return True
     return False
 
-def get_all_filepaths(
+def _get_all_filepaths(
         directory: str, 
         extensions:list[str]= ["md", "txt"], 
         limit=50
@@ -50,36 +57,14 @@ def get_all_filepaths(
     found: list[str] = []
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
-            if has_extension(filename, extensions):
+            if _has_extension(filename, extensions):
                 found.append(os.path.join(dirpath, filename))
                 if len(found) >= limit:
                     return found
         dirnames[:] = [d for d in dirnames if "." not in d]
     return found
 
-def chunkify_files(filepaths: list[str]) -> Generator[FileChunkBundle, None, None]:
-    """
-    Yields the text from each file.
-
-    If any file reads raise an IOError, the paths are recorded
-    And the error is re-raised at the end.
-    """
-    errors = []
-    error_paths = []
-    for path in filepaths:
-        try:
-            file_bundle = chunkify_file(path)
-            yield file_bundle
-        except IOError as e:
-            errors.append(e)
-            error_paths.append(path)
-    if error_paths:
-        print("\nErrors while reading files:")
-        for p in error_paths:
-            print(p)
-        raise IOError(errors)
-
-def chunkify_file(filename: str) -> FileChunkBundle:
+def _chunkify_file(filename: str) -> FileChunkBundle:
     """
     Input = a single block of text
     Output = 🚨 Currently outputs one chunk per file
@@ -104,7 +89,7 @@ def chunkify_file(filename: str) -> FileChunkBundle:
 
             file.chunks.append(Chunk(
                 chunk_text=f.read(), 
-                embedding=[1,2,3], 
+                embedding=_mock_vector(), 
                 chunk_number=current_chunk,
             ))
 
@@ -114,38 +99,65 @@ def chunkify_file(filename: str) -> FileChunkBundle:
 
     return file
 
-
-def push_file_to_db(filename: str) -> None:
+def _chunkify_files(
+        filepaths: list[str]
+    ) -> Generator[FileChunkBundle, None, None]:
     """
-    - Input: filename
+    Yields the text from each file.
+
+    If any file reads raise an IOError, the paths are recorded
+    And the error is re-raised at the end.
+    """
+    errors = []
+    error_paths = []
+    for path in filepaths:
+        try:
+            file_bundle = _chunkify_file(path)
+            yield file_bundle
+        except IOError as e:
+            errors.append(e)
+            error_paths.append(path)
+    if error_paths:
+        print("\nErrors while reading files:")
+        for p in error_paths:
+            print(p)
+        raise IOError(errors)
+
+def ingest_files_to_db(directory_path: str) -> None:
+    """
     - Side effect: push file chunks and metadata to database
     - Algo:
-        
-        - chunks = chunkify()
-        - for each chunk:
-            - insert_chunk (pgvector.py)
-                - push to DB
-                    filename
-                    dir_path
-                    chunk_text
-                    embedding
-                    chunk_number
-                    total_chunks
-                    filesize
-                    metadata = {}
+        - paths = get all paths
+        - file_bundles = chunkify_files(paths)
+        - for each file bundle:
+            - for each chunk:
+                - insert_chunk (pgvector.py)
+                    - push to DB
+                        filename
+                        dir_path
+                        chunk_text
+                        embedding
+                        chunk_number
+                        total_chunks
+                        filesize
+                        metadata = {}
     """
-    pass
+    paths = _get_all_filepaths(directory_path)
+
+    bundles = _chunkify_files(paths)
+    inserted_rows = insert_chunks(bundles)
+
+    if inserted_rows != len(paths):
+        raise Exception(f"❌ Expected {len(paths)} insertions, got {inserted_rows}")
+
+    print(f"✅ INSERTED {inserted_rows} rows.")
+            
 
 
 if __name__ == "__main__":
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/01_Intake/"
-    # pp(get_all_filepaths(path, limit=20))
+    ingest_files_to_db(path)
 
-    paths = get_all_filepaths(path, limit=5)
-    print(paths)
-
-    for file_bundle in chunkify_files(paths):
-        pp(file_bundle)
 
 
     
