@@ -67,7 +67,7 @@ def _get_file_metadata(filename: str):
     # NOT IMPELMENTED
     return {"data": "this feature not yet implemented"}
 
-def _chunkify_file(filename: str) -> FileChunkBundle:
+def _bundle_file(filename: str) -> FileChunkBundle:
     """
     Output = 🚨 Currently outputs one chunk per file
     
@@ -101,20 +101,21 @@ def _chunkify_file(filename: str) -> FileChunkBundle:
 
     return file
 
-def _chunkify_files(
+def _bundle_files(
         filepaths: list[str]
     ) -> Generator[FileChunkBundle, None, None]:
     """
-    Yields the text from each file.
+    Yields the text from each file into a Bundle
 
     If any file reads raise an IOError, the paths are recorded
     And the error is re-raised at the end.
     """
     errors = []
     error_paths = []
+
     for path in filepaths:
         try:
-            file_bundle = _chunkify_file(path)
+            file_bundle = _bundle_file(path)
             yield file_bundle
         except IOError as e:
             errors.append(e)
@@ -147,7 +148,7 @@ def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
     """
     paths = _get_all_filepaths(directory_path)
 
-    bundles = _chunkify_files(paths)
+    bundles = _bundle_files(paths)
     inserted_rows = insert_chunks(bundles)
 
     if inserted_rows != len(paths):
