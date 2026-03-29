@@ -1,7 +1,7 @@
 import os
 import random
 from pprint import pp
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Iterable
 
 from yara.config import env
 from yara.services.chunk import FileBundle, Chunk
@@ -90,14 +90,14 @@ def _chunk_file(filename: str) -> list[str]:
         e.filename = filename
         raise e
 
-def _bundle_file(filename: str) -> FileBundle:
+def _bundle_file(filename: str, chunk=True) -> FileBundle:
     """
-    Turn a filename into a FileBundle
+    Turn a filename into a FileBundle.
     """
     file = FileBundle(
         dir_path=os.path.dirname(filename),
         filename=os.path.basename(filename),
-        chunks=_chunk_file(filename),
+        chunks=_chunk_file(filename) if chunk else [],
         filesize=os.path.getsize(filename),
         metadata=_get_file_metadata(filename)
     )
@@ -105,30 +105,31 @@ def _bundle_file(filename: str) -> FileBundle:
 
 def _bundle_files(
         filepaths: list[str]
-    ) -> Generator[FileBundle, None, None]:
+    ) -> list[FileBundle]:
     """
-    Yields the text from each file into a Bundle
+    Convert filepaths into Bundles.  Texts are chunked as part of this step.
 
     If any file reads raise an IOError, the paths are recorded
     And the error is re-raised at the end.
     """
     errors = []
     error_paths = []
+    bundles: list[FileBundle] = []
 
     for path in filepaths:
         try:
-            file_bundle = _bundle_file(path)
+            bundles.append(_bundle_file(path))
         except IOError as e:
             errors.append(e)
             error_paths.append(path)
-        yield file_bundle
     if error_paths:
-        print("\nErrors while reading files:")
+        print("\nIOErrors while reading files:")
         for p in error_paths:
             print(p)
         raise IOError(errors)
+    return bundles
     
-def _files_to_chunks(files: Iterator[FileBundle]) -> list[Chunk]:
+def _files_to_chunks(files: Iterable[FileBundle]) -> list[Chunk]:
     """
     Flatten FileBundles into a list of Chunks, for feeding to the Embedder
     """
@@ -154,7 +155,7 @@ def _files_to_chunks(files: Iterator[FileBundle]) -> list[Chunk]:
 
    
 
-def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
+def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> None:
     """
     **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
 
@@ -177,6 +178,7 @@ def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
     """
     if verbose: print(f"\n⌛ Ingesting files...")
     paths = _get_all_filepaths(directory_path)
+    
 
     bundles = _bundle_files(paths)
     chunks = _files_to_chunks(bundles)
