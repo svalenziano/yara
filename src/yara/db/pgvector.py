@@ -128,13 +128,15 @@ def _nuke_chunks():
 
 def insert_chunks(
         chunks: list[Chunk], 
-        project_id=get_max_project_id() + 1
+        project_id: int | None=None
     ) -> int:
     """
     Returns: number of successful insertions
     **TODO = make project_id dynamic**
     **TODO Optimization = executemany() or psycopg2.extras.execute_values() ?**
     """
+    if not project_id:
+        project_id = get_max_project_id() + 1
 
     insert_count = 0
     query = """

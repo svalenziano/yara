@@ -36,7 +36,7 @@ def _has_extension(
     extensions=['md', 'txt']
     ) -> bool:
     for extension in extensions:
-        if filename.endswith(extension):
+        if filename.endswith("." + extension):
             return True
     return False
 
@@ -49,12 +49,17 @@ def _get_all_filepaths(
     """
     Walk the directory recursively and return paths matching `extensions`, up to `limit`.
     """
+    keep_going = True
+
     if not os.path.isdir(directory):                                                       
       raise ValueError(f"Directory does not exist: {directory}")  
     found: list[str] = []
     for dirpath, dirnames, filenames in os.walk(directory):
+        if not keep_going:
+            break
         for filename in filenames:
             if limit and len(found) >= limit:
+                keep_going = False
                 break
             if _has_extension(filename, extensions):
                 found.append(os.path.join(dirpath, filename))
@@ -113,10 +118,10 @@ def _bundle_files(
     for path in filepaths:
         try:
             file_bundle = _bundle_file(path)
-            yield file_bundle
         except IOError as e:
             errors.append(e)
             error_paths.append(path)
+        yield file_bundle
     if error_paths:
         print("\nErrors while reading files:")
         for p in error_paths:
