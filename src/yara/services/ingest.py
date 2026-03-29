@@ -6,7 +6,7 @@ from collections.abc import Generator
 from yara.config import env
 from yara.services.chunk import Chunk, FileChunkBundle
 from yara.db.pgvector import insert_chunks, get_chunk_count
-from yara.services.openai_embedding import generate_embedding
+from yara.services.openai_embedding import generate_embeddings
 
 """
 ALGO
@@ -67,6 +67,13 @@ def _get_file_metadata(filename: str):
     # NOT IMPELMENTED
     return {"data": "this feature not yet implemented"}
 
+def _chunk_text_fixed(text_to_chunk: str, max_size= 1000) -> list[str]:
+    """
+    Fixed-size text chunking
+    """
+    chunked = []
+    return chunked
+
 def _bundle_file(filename: str) -> FileChunkBundle:
     """
     Output = 🚨 Currently outputs one chunk per file
@@ -91,7 +98,7 @@ def _bundle_file(filename: str) -> FileChunkBundle:
             text = f.read()
             file.chunks.append(Chunk(
                 chunk_text=text, 
-                embedding=generate_embedding(text, verbose=VERBOSE), 
+                embedding=generate_embeddings(text, verbose=VERBOSE), 
                 chunk_number=current_chunk,
             ))
 
