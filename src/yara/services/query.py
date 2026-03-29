@@ -14,4 +14,16 @@ def query_similar_chunks(query_text: str):
     - Return chunks
     """
     query_vector = generate_single_embedding(query_text)
-    return 
+    return get_similar_chunks(query_vector, 10)
+
+def simple_query(query_text: str) -> str:
+    result = ""
+
+    for r in query_similar_chunks(query_text):
+        result += "/" * 50
+        result += r['chunk_text']
+    
+    return result
+
+if __name__ == "__main__":
+    print(simple_query("Backups and deduplication"))

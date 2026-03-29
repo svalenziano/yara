@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from contextlib import contextmanager
+from typing import cast
 
 import psycopg2
 from psycopg2.extras import RealDictCursor, RealDictRow, Json
@@ -100,9 +101,11 @@ def get_chunk_count() -> int:
     """
     return get_dict(query)[0]['count'] or 0
 
-def get_similar_chunks(embedding, top_k: int) -> list[dict]:
+def get_similar_chunks(embedding, top_k: int) -> list[SimilarChunk]:
     """
-    top_k = how many records to return?
+    Args:
+        embedding: the embedding you wish to find similar chunks to
+        top_k: how many records to return?
     """
     query = """
         SELECT 
@@ -112,7 +115,7 @@ def get_similar_chunks(embedding, top_k: int) -> list[dict]:
         ORDER BY cosine_similarity DESC
         LIMIT %s;
     """
-    return [dict(d) for d in get_dict(query, (embedding, top_k))]
+    return [cast(SimilarChunk, dict(d)) for d in get_dict(query, (embedding, top_k))]
 
 def get_max_project_id() -> int:
     query = """

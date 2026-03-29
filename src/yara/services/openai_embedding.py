@@ -1,9 +1,11 @@
 from yara.services.openai_client import client
 from yara.config import env
 
-def generate_embeddings(text: list[str]):
+def generate_embeddings(text: list[str], metadata: list[dict]=[]):
     """
-    Input: String to embed
+    Args:
+        - text: list of texts to embed
+        - metadata: added to the embedding, if present
     
     Return: EmbeddingResponse, e.g.
     ```
@@ -35,7 +37,10 @@ def generate_embeddings(text: list[str]):
     
     [Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
     """
-    
+    if metadata:
+        # inject metadata into the `text` list
+        pass
+
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=text,
