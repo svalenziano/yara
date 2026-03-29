@@ -3,8 +3,9 @@ Query the ingested data
 """
 
 from yara.services.openai_embedding import generate_single_embedding
+from yara.db.pgvector import get_similar_chunks
 
-def get_similar_chunks(query_text: str):
+def query_similar_chunks(query_text: str):
     """
     
     Algo:
@@ -13,4 +14,4 @@ def get_similar_chunks(query_text: str):
     - Return chunks
     """
     query_vector = generate_single_embedding(query_text)
-    
+    return 

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import TypedDict                                                            
 
 @dataclass
 class Chunk():
@@ -24,3 +25,12 @@ class FileBundle():
     @property
     def total_chunks(self):
         return len(self.chunks)
+    
+                                                                                        
+class SimilarChunk(TypedDict):                                                          
+    id: int                                           
+    project_id: int
+    filename: str
+    dir_path: str
+    chunk_text: str
+    cosine_similarity: float   

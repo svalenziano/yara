@@ -5,7 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, RealDictRow, Json
 
 from yara.config import env
-from yara.services.chunk import Chunk
+from yara.types import Chunk, SimilarChunk
 
 @contextmanager
 def _database_connect():
@@ -100,14 +100,15 @@ def get_chunk_count() -> int:
     """
     return get_dict(query)[0]['count'] or 0
 
-def get_similar(embedding, top_k: int) -> list[dict]:
+def get_similar_chunks(embedding, top_k: int) -> list[dict]:
     """
     top_k = how many records to return?
     """
     query = """
-        SELECT id, book_title, chapter_title, chapter_url, 
+        SELECT 
+            id, project_id, filename, dir_path, chunk_text, 
             1 - (embedding <=> %s::vector) AS cosine_similarity
-        FROM book_chapter
+        FROM chunk
         ORDER BY cosine_similarity DESC
         LIMIT %s;
     """

@@ -9,7 +9,7 @@ from pprint import pp
 from collections.abc import Generator, Iterator, Iterable
 
 from yara.config import env
-from yara.services.chunk import FileBundle, Chunk
+from yara.types import FileBundle, Chunk
 from yara.db.pgvector import insert_chunks, get_chunk_count, get_max_project_id
 from yara.services.openai_embedding import generate_embeddings
 

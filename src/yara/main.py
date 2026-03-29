@@ -26,7 +26,7 @@ def main():
             quit()
 
         embed = generate_embedding(i)
-        result = pgvector.get_similar(embed, 5)
+        result = pgvector.get_similar_chunks(embed, 5)
 
         print("\nAssistant: Here you go!")
         print(formatDict(result))   
