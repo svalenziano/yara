@@ -34,9 +34,8 @@ def generate_embeddings(text: list[str]):
         300,000 tokens per request
     
     [Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
-
-    
     """
+    
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=text,
@@ -47,3 +46,10 @@ def generate_embeddings(text: list[str]):
         raise Exception("Invalid OpenAI response", response)
     
     return response.data
+
+
+def generate_single_embedding(text: str) -> list[float]:
+    """
+    Returns a single embedding e.g. [1.23, 4.56, ... , 7.89]
+    """
+    return generate_embeddings([text])[0].embedding

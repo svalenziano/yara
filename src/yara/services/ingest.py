@@ -1,3 +1,7 @@
+"""
+Ingest data from filesystem into Database
+"""
+
 import os
 import random
 from math import ceil
@@ -9,20 +13,6 @@ from yara.services.chunk import FileBundle, Chunk
 from yara.db.pgvector import insert_chunks, get_chunk_count, get_max_project_id
 from yara.services.openai_embedding import generate_embeddings
 
-"""
-ALGO
-    - Given filepath, generate list of files that match the file extension filter
-    - 
-    - SQL:
-        - get MAX project ID (if any chunks exist, otherwise use 0)
-    - Ingest files using the next project_id
-    - push to DB
-
-FUNCTIONS:
-    DO NOW:
-        - chunkify (see below)
-
-"""
 MOCK = False  # not implemented
 LIMIT: int | None = 500
 VERBOSE = env['VERBOSE']
