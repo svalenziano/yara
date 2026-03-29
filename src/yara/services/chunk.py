@@ -7,10 +7,10 @@ class Chunk():
     chunk_number: int
 
 @dataclass
-class FileChunkBundle():
+class FileBundle():
     dir_path: str
     filename: str
-    chunks: list[Chunk]
+    chunks: list[str]
     filesize: int
     metadata: dict  # misc metadata
 

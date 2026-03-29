@@ -4,7 +4,7 @@ from pprint import pp
 from collections.abc import Generator
 
 from yara.config import env
-from yara.services.chunk import Chunk, FileChunkBundle
+from yara.services.chunk import Chunk, FileBundle
 from yara.db.pgvector import insert_chunks, get_chunk_count
 from yara.services.openai_embedding import generate_embeddings
 
@@ -67,50 +67,41 @@ def _get_file_metadata(filename: str):
     # NOT IMPELMENTED
     return {"data": "this feature not yet implemented"}
 
-def _chunk_text_fixed(text_to_chunk: str, max_size= 1000) -> list[str]:
+def _chunk_text(text_to_chunk: str, max_characters= 1000) -> list[str]:
     """
     Fixed-size text chunking
     """
     chunked = []
+    for i in range(0, len(text_to_chunk), max_characters):
+        chunked.append(text_to_chunk[i:i + max_characters])
     return chunked
 
-def _bundle_file(filename: str) -> FileChunkBundle:
-    """
-    Output = 🚨 Currently outputs one chunk per file
-    
-    **TODO IMPLEMENT CHUNKING LOGIC**
-    USE LANCHAIN'S CHUNKER
-    """
-    file = FileChunkBundle(
-        dir_path=os.path.dirname(filename),
-        filename=os.path.basename(filename),
-        chunks=[],
-        filesize=os.path.getsize(filename),
-        metadata=_get_file_metadata(filename)
-    )
-
-    current_chunk = 0
-
+def _chunk_file(filename: str) -> list[str]:
     try:
         with open(filename, encoding="utf-8") as f:
-            # TODO - IMPLEMENT ACTUAL CHUNKING!
-            current_chunk += 1
-            text = f.read()
-            file.chunks.append(Chunk(
-                chunk_text=text, 
-                embedding=generate_embeddings(text, verbose=VERBOSE), 
-                chunk_number=current_chunk,
-            ))
+            return _chunk_text(f.read(), 1000)
 
     except IOError as e:
         e.filename = filename
         raise e
 
+def _bundle_file(filename: str) -> FileBundle:
+    """
+    Turn a filename into a FileBundle
+    """
+    file = FileBundle(
+        dir_path=os.path.dirname(filename),
+        filename=os.path.basename(filename),
+        chunks=_chunk_file(filename),
+        filesize=os.path.getsize(filename),
+        metadata=_get_file_metadata(filename)
+    )
+
     return file
 
 def _bundle_files(
         filepaths: list[str]
-    ) -> Generator[FileChunkBundle, None, None]:
+    ) -> Generator[FileBundle, None, None]:
     """
     Yields the text from each file into a Bundle
 
