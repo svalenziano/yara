@@ -38,8 +38,10 @@ def generate_embeddings(text: list[str], metadata: list[dict]=[]):
     [Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
     """
     if metadata:
-        # inject metadata into the `text` list
-        pass
+        text = [
+            " ".join(f"{k}: {v}" for k, v in meta.items()) + "\n" + t
+            for t, meta in zip(text, metadata)
+        ]
 
     response = client.embeddings.create(
         model="text-embedding-3-small",

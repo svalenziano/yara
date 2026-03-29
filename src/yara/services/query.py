@@ -20,10 +20,12 @@ def simple_query(query_text: str) -> str:
     result = ""
 
     for r in query_similar_chunks(query_text):
-        result += "/" * 50
-        result += r['chunk_text']
+        result += "\n" + "/" * 50
+        result += "\n" + r['filename']
+        result += "\n" + "/" * 50
+        result += "\n" + r['chunk_text']
     
     return result
 
 if __name__ == "__main__":
-    print(simple_query("Backups and deduplication"))
+    print(simple_query("Dogs"))

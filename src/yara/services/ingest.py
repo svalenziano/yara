@@ -185,13 +185,14 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
         bundles = _bundle_files(batch_paths)
         chunks = _files_to_chunks(bundles)
         texts = [chunk.chunk_text for chunk in chunks]
+        metadata = [{'filename':chunk.filename, 'filepath':chunk.dir_path} for chunk in chunks]
 
         if verbose: print(f"  Chunk count = {len(texts)}")
 
         if MOCK:
             raise Exception("Not implemented")
         else:
-            embeddings = generate_embeddings(texts)
+            embeddings = generate_embeddings(texts, metadata)
             
         for embedding in embeddings:
             chunks[embedding.index].embedding = embedding.embedding
