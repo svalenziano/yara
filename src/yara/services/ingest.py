@@ -1,10 +1,10 @@
 import os
 import random
 from pprint import pp
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 
 from yara.config import env
-from yara.services.chunk import Chunk, FileBundle
+from yara.services.chunk import FileBundle, Chunk
 from yara.db.pgvector import insert_chunks, get_chunk_count
 from yara.services.openai_embedding import generate_embeddings
 
@@ -96,7 +96,6 @@ def _bundle_file(filename: str) -> FileBundle:
         filesize=os.path.getsize(filename),
         metadata=_get_file_metadata(filename)
     )
-
     return file
 
 def _bundle_files(
@@ -123,10 +122,35 @@ def _bundle_files(
         for p in error_paths:
             print(p)
         raise IOError(errors)
+    
+def _files_to_chunks(files: Iterator[FileBundle]) -> list[Chunk]:
+    """
+    Flatten FileBundles into a list of Chunks, for feeding to the Embedder
+    """
+    chunks = []
+
+    for file in files:
+        chunk_count = len(file.chunks)
+        for idx, chunk in enumerate(file.chunks):
+            chunks.append(
+                Chunk(
+                    chunk_text=chunk,
+                    embedding=[],
+                    chunk_number=idx + 1,
+                    total_chunks=chunk_count,
+                    dir_path=file.dir_path,
+                    filename=file.filename,
+                    filesize=file.filesize,
+                    metadata=file.metadata,
+                )
+        )
+
+    return chunks
 
 def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
-    if verbose: print(f"\n⌛ Ingesting files...")
     """
+    **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
+
     - Side effect: push file chunks and metadata to database
     - Algo:
         - paths = get all paths
@@ -144,6 +168,7 @@ def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
                         filesize
                         metadata = {}
     """
+    if verbose: print(f"\n⌛ Ingesting files...")
     paths = _get_all_filepaths(directory_path)
 
     bundles = _bundle_files(paths)
