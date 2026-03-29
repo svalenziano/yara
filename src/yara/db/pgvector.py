@@ -5,7 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, RealDictRow, Json
 
 from yara.config import env
-from yara.services.chunk import FileBundle
+from yara.services.chunk import Chunk
 
 @contextmanager
 def _database_connect():
@@ -127,7 +127,7 @@ def _nuke_chunks():
     print(f"📦 Deleted all {delete_count} from the table.")
 
 def insert_chunks(
-        bundles: Iterable[FileBundle], 
+        chunks: list[Chunk], 
         project_id=get_max_project_id() + 1
     ) -> int:
     """
@@ -155,20 +155,19 @@ def insert_chunks(
     """
     with _database_connect() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            for file in bundles:
-                for chunk in file.chunks:
-                    cursor.execute(query, (
-                        project_id,
-                        file.filename,
-                        file.dir_path,
-                        chunk.chunk_text,
-                        chunk.embedding,
-                        chunk.chunk_number,
-                        file.total_chunks,
-                        file.filesize,
-                        Json(file.metadata)
-                    ))
-                    insert_count += 1
+            for chunk in chunks:
+                cursor.execute(query, (
+                    project_id,
+                    chunk.filename,
+                    chunk.dir_path,
+                    chunk.chunk_text,
+                    chunk.embedding,
+                    chunk.chunk_number,
+                    chunk.total_chunks,
+                    chunk.filesize,
+                    Json(chunk.metadata)
+                ))
+                insert_count += 1
     return insert_count
 
 def test():

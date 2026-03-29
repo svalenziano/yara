@@ -22,7 +22,7 @@ FUNCTIONS:
         - chunkify (see below)
 
 """
-
+MOCK = False
 LIMIT: int | None = 10
 VERBOSE = env['VERBOSE']
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
@@ -147,6 +147,8 @@ def _files_to_chunks(files: Iterator[FileBundle]) -> list[Chunk]:
 
     return chunks
 
+   
+
 def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
     """
     **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
@@ -172,10 +174,22 @@ def ingest_files_to_db(directory_path: str, verbose=VERBOSE) -> None:
     paths = _get_all_filepaths(directory_path)
 
     bundles = _bundle_files(paths)
-    inserted_rows = insert_chunks(bundles)
+    chunks = _files_to_chunks(bundles)
+    texts = [chunk.chunk_text for chunk in chunks]
 
-    if inserted_rows != len(paths):
-        raise Exception(f"❌ Expected {len(paths)} insertions, got {inserted_rows}")
+    if MOCK:
+        raise Exception("Not implemented")
+    else:
+        embeddings = generate_embeddings(texts)
+        
+    for embedding in embeddings:
+        chunks[embedding.index].embedding = embedding.embedding
+
+    # push chunks to the database
+    inserted_rows = insert_chunks(chunks)
+
+    if inserted_rows != len(chunks):
+        raise Exception(f"❌ Expected {len(chunks)} insertions, got {inserted_rows}")
 
     if verbose: print(f"\n✅ INSERTED {inserted_rows} rows.")
             

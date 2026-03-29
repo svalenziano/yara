@@ -1,15 +1,41 @@
 from yara.services.openai_client import client
 from yara.config import env
 
-def generate_embeddings(text: list[str], metadata=list[dict], verbose=False):
+def generate_embeddings(text: list[str]):
     """
     Input: String to embed
-    Return: Embedding (Array of numbers)
+    
+    Return: EmbeddingResponse, e.g.
+    ```
+        {
+            "object": "list",
+            "data": [
+                {
+                "object": "embedding",
+                "embedding": [
+                    0.0023064255,
+                    -0.009327292,
+                    .... (1536 floats total for ada-002)
+                    -0.0028842222,
+                ],
+                "index": 0
+                }
+            ],
+            "model": "text-embedding-ada-002",
+            "usage": {
+                "prompt_tokens": 8,
+                "total_tokens": 8
+            }
+        }
+    ```
 
     **MAXIMUMS:**
-    8,192 tokens per embedding
-    300,000 tokens per request
-    [API Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
+        8,192 tokens per embedding
+        300,000 tokens per request
+    
+    [Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
+
+    
     """
     response = client.embeddings.create(
         model="text-embedding-3-small",
