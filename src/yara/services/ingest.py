@@ -1,11 +1,12 @@
 import os
 import random
+from math import ceil
 from pprint import pp
 from collections.abc import Generator, Iterator, Iterable
 
 from yara.config import env
 from yara.services.chunk import FileBundle, Chunk
-from yara.db.pgvector import insert_chunks, get_chunk_count
+from yara.db.pgvector import insert_chunks, get_chunk_count, get_max_project_id
 from yara.services.openai_embedding import generate_embeddings
 
 """
@@ -22,8 +23,8 @@ FUNCTIONS:
         - chunkify (see below)
 
 """
-MOCK = False
-LIMIT: int | None = 10
+MOCK = False  # not implemented
+LIMIT: int | None = 500
 VERBOSE = env['VERBOSE']
 EXTENSIONS = ("md", "txt", "log", "json", "yaml", "toml", "mermaid", "excalidraw", "excalidraw.png", "excalidraw.svg")
 
@@ -177,35 +178,48 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
                         metadata = {}
     """
     if verbose: print(f"\n⌛ Ingesting files...")
+
     paths = _get_all_filepaths(directory_path)
-    
+    batches = ceil(len(paths) / batch_size)
 
-    bundles = _bundle_files(paths)
-    chunks = _files_to_chunks(bundles)
-    texts = [chunk.chunk_text for chunk in chunks]
+    if verbose: print(f"\nIngesting in {batches} batches.")
 
-    if MOCK:
-        raise Exception("Not implemented")
-    else:
-        embeddings = generate_embeddings(texts)
-        
-    for embedding in embeddings:
-        chunks[embedding.index].embedding = embedding.embedding
+    project_id = get_max_project_id() + 1
 
-    # push chunks to the database
-    inserted_rows = insert_chunks(chunks)
+    for batch in range(batches):
+        if verbose: print(f"\nHandling batch {batch}")
 
-    if inserted_rows != len(chunks):
-        raise Exception(f"❌ Expected {len(chunks)} insertions, got {inserted_rows}")
+        start = batch * batch_size
+        batch_paths = paths[start: start + batch_size]
 
-    if verbose: print(f"\n✅ INSERTED {inserted_rows} rows.")
+        bundles = _bundle_files(batch_paths)
+        chunks = _files_to_chunks(bundles)
+        texts = [chunk.chunk_text for chunk in chunks]
+
+        if verbose: print(f"  Chunk count = {len(texts)}")
+
+        if MOCK:
+            raise Exception("Not implemented")
+        else:
+            embeddings = generate_embeddings(texts)
+            
+        for embedding in embeddings:
+            chunks[embedding.index].embedding = embedding.embedding
+
+        # push chunks to the database
+        inserted_rows = insert_chunks(chunks, project_id=project_id)
+
+        if inserted_rows != len(chunks):
+            raise Exception(f"  ❌ Expected {len(chunks)} insertions, got {inserted_rows}")
+
+        if verbose: print(f"  ✅ INSERTED {inserted_rows} rows.")
             
 
 
 if __name__ == "__main__":
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
     ingest_files_to_db(path, )
-    print(f"📦 Total chunk count: {get_chunk_count()}")
+    print(f"\n📦 Total chunks in DB: {get_chunk_count()}")
 
 
 
