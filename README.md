@@ -29,7 +29,7 @@ python -m yara.main
 		- [x] return the top_k matches
 - [ ] Interactive CLI
 	- [ ] LLM-powered question answering based on semantic query
-		- [ ] super basic - no classification - new context on every request
+		- [ ] super basic - no classification - new context on every request - do the standard Wengrow loop
 		- [ ] routing / classification step
 		- [ ] LLM provides filename references
 	- [ ] ~~semantic query - return data in LLM-friendly format~~  Only do this if the LLM has trouble
