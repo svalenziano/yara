@@ -3,6 +3,7 @@ LLM-powered routing and classification
 """
 
 from typing import Callable
+from pydantic import BaseModel
 
 import yara.services.handlers as handlers
 from yara.services.conversation import Conversation
@@ -19,9 +20,10 @@ def router(query: str, conversation: Conversation) -> Callable:
 
 
         Idea:
-            -
+            - query LLM - new or old information?
+            - if new, then do RAG
+            - if old, then pass existing history with new user query
     """
-
 
     if len(conversation) <= 3:  # Conversation has just begun
         return handlers.rag_request

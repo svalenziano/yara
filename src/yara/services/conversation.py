@@ -52,14 +52,17 @@ class Conversation:
 
     def get_augmented_entries(self, developer_prompt: str):
         """
-        Return a shallow copy of the conversation that's augmented by the provided prompt
+        Return a shallow copy of the conversation
+        that's augmented by the provided prompt
         """
 
-        result = [*self.get_entries()] + [{"role": "developer", "content": developer_prompt}]
+        result = [*self.get_entries()] + [
+            {"role": "developer", "content": developer_prompt}
+        ]
         print(result)
         print(self.get_entries() is result)
         return result
-    
+
 
 if __name__ == "__main__":
     c = Conversation()

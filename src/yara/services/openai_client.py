@@ -1,3 +1,7 @@
+from textwrap import dedent
+from typing import Callable
+
+
 from openai import OpenAI
 
 from yara.config import env
@@ -12,14 +16,19 @@ MODELS = {
 }
 
 
-def classify_request(conversation: Conversation, possible_options: list[str]) -> str:
+def classify_request(
+    conversation: Conversation, possible_options: list[Callable]
+) -> str:
     """
     Make a routing decision
 
     Input = query
     Output = query path aka routing decision.  Must one one of `possible_options`
     """
+    if not possible_options:
+        raise TypeError("possible_options must be provided")
 
+    options = {}
     pass
 
 
@@ -27,9 +36,20 @@ def enrich_query(conversation: Conversation) -> str:
     """
     Returns enriched query which can be used for vector DB querying
     """
+
+    augmented_convo = conversation.get_augmented_entries(
+        dedent("""
+        Please review the above conversation.  My goal is to rewrite
+        the user's last query such that it will return more accurate
+        result from a vector database.  Can you provide such a query?
+
+        Return only the query.  Do not include any additional text.
+    """)
+    )
+
     response = client.responses.create(
         model=MODELS["fast"],
-        input=conversation.get_entries(),  # type: ignore
+        input=augmented_convo,  # type: ignore
         temperature=0,
     )
 
@@ -49,6 +69,7 @@ def generate_embeddings(text: list[str], metadata: list[dict] = []):
             "data": [
                 {
                 "object": "embedding",
+
                 "embedding": [
                     0.0023064255,
                     -0.009327292,

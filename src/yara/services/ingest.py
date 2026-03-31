@@ -48,7 +48,8 @@ def _get_all_filepaths(
     verbose=VERBOSE,
 ) -> list[str]:
     """
-    Walk the directory recursively and return paths matching `extensions`, up to `limit`.
+    Walk the directory recursively and return paths
+    matching `extensions`, up to `limit`.
     """
     keep_going = True
 
