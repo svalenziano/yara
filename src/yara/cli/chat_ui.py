@@ -7,13 +7,13 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.cursor_shapes import CursorShape
 
 from yara.services.router import router
+from yara.services.handlers import initialize_conversation
 
 
 
 console = Console()
 
-SYSTEM_PROMPT = "You are a helpful AI assistant tasked with helping the user find materials within a database of documents."
-GREETING = "How can I help you today?"
+
 
 
 def get_user_input(history):
@@ -32,12 +32,10 @@ def render_assistant(text):
 
 def chat_loop():
     history_file = FileHistory(".yara_chat_history")
-    conversation = [
-        {"role": "developer", "content": SYSTEM_PROMPT},
-        {"role": "assistant", "content": GREETING},
-    ]
 
-    render_assistant(GREETING)
+    conversation = initialize_conversation()
+
+    render_assistant(conversation[-1]['content'])
 
     while True:
         try:
@@ -53,20 +51,8 @@ def chat_loop():
         if not ask.strip():
             continue
 
-        """
-        Todo: classifier
-
-        IDEAS
-            1) 
-                - execute classifer, return a 'route' string
-                - switch modes based on that string
-
-            2) 
-                - ???
-        """
-
-        route = router(ask, conversation)
-        llm_response = route(ask, conversation)
+        handler = router(ask, conversation)
+        llm_response = handler(ask, conversation)
 
         render_assistant(llm_response)
 

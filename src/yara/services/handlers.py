@@ -2,7 +2,16 @@
 from yara.services.get_chunks import query_similar_chunks_pretty
 from yara.services.openai_client import client
 
-def basic_rag(query, conversation) -> str:
+def initialize_conversation() -> list[dict]:
+    SYSTEM_PROMPT = "You are a helpful AI assistant tasked with helping the user find materials within a database of documents."
+    GREETING = "How can I help you today?"
+    conversation = [
+        {"role": "developer", "content": SYSTEM_PROMPT},
+        {"role": "assistant", "content": GREETING},
+    ]
+    return conversation
+
+def first_rag_request(query, conversation) -> str:
     """
     Input: query and convo
     Side effects: mutate convo to reflect new interactions
@@ -45,3 +54,12 @@ def basic_rag(query, conversation) -> str:
     })
 
     return final_response
+
+def new_topic(query, conversation) -> str:
+    """
+    TODO - compress the history!
+
+    Remove existing context and submit new query to LLM.
+    """
+    return ""
+
