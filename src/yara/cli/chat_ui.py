@@ -1,15 +1,16 @@
+from prompt_toolkit import prompt
+from prompt_toolkit.cursor_shapes import CursorShape
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from prompt_toolkit import prompt
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.cursor_shapes import CursorShape
 
-from yara.services.router import router
 from yara.services.handlers import initialize_conversation
+from yara.services.router import router
 
 console = Console()
+
 
 def get_user_input(history):
     return prompt(
@@ -17,6 +18,7 @@ def get_user_input(history):
         history=history,
         cursor=CursorShape.BLINKING_BLOCK,
     )
+
 
 def render_assistant(text):
     console.print()
@@ -29,7 +31,7 @@ def chat_loop():
 
     conversation = initialize_conversation()
 
-    render_assistant(conversation[-1]['content'])
+    render_assistant(conversation[-1]["content"])
 
     while True:
         try:

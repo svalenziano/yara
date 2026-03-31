@@ -1,12 +1,13 @@
-from yara.services.openai_client import client
 from yara.config import env
+from yara.services.openai_client import client
 
-def generate_embeddings(text: list[str], metadata: list[dict]=[]):
+
+def generate_embeddings(text: list[str], metadata: list[dict] = []):
     """
     Args:
         - text: list of texts to embed
         - metadata: added to the embedding, if present
-    
+
     Return: EmbeddingResponse, e.g.
     ```
         {
@@ -34,7 +35,7 @@ def generate_embeddings(text: list[str], metadata: list[dict]=[]):
     **MAXIMUMS:**
         8,192 tokens per embedding
         300,000 tokens per request
-    
+
     [Docs](https://developers.openai.com/api/reference/python/resources/embeddings/methods/create)
     """
     if metadata:
@@ -44,14 +45,12 @@ def generate_embeddings(text: list[str], metadata: list[dict]=[]):
         ]
 
     response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text,
-        dimensions=int(env['VECTOR_DIMS'])
+        model="text-embedding-3-small", input=text, dimensions=int(env["VECTOR_DIMS"])
     )
 
     if not response.data:
         raise Exception("Invalid OpenAI response", response)
-    
+
     return response.data
 
 

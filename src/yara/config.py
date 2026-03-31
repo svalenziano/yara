@@ -1,6 +1,7 @@
 import os
-from dotenv import load_dotenv
 from typing import TypedDict
+
+from dotenv import load_dotenv
 
 
 class Env(TypedDict):
@@ -11,14 +12,12 @@ class Env(TypedDict):
     PG_HOST: str
     PG_PORT: str
     PG_DB_NAME: str
-    VECTOR_DIMS:int
+    VECTOR_DIMS: int
     VERBOSE: bool
 
 
 def load_from_environment():
     env: Env = {}  # type: ignore[typeddict-item]  # import this object into your module
-
-        
 
     # LOAD VARS FROM ENVIRONMENT
     # Beware verbose logging, which may log your API keys
@@ -30,18 +29,20 @@ def load_from_environment():
 
     for key in expected_env_vars:
         if key in env:
-            raise ValueError(f"Key '{key}' was found in both your config.py and the environment.  It should only exist in one location.")
+            raise ValueError(
+                f"Key '{key}' was found in both your config.py and the environment.  It should only exist in one location."
+            )
         found = os.getenv(key)
         if found != None:  # Keys with empty strings will follow this code path
             env[key] = found
         else:
-            misses.append(key)        
+            misses.append(key)
 
     if misses:
-        raise Exception(f"Some env vars were not found: {", ".join(misses)}")
+        raise Exception(f"Some env vars were not found: {', '.join(misses)}")
 
     return env
 
 
 env = load_from_environment()
-env["VECTOR_DIMS"] = int(env['VECTOR_DIMS'])
+env["VECTOR_DIMS"] = int(env["VECTOR_DIMS"])
