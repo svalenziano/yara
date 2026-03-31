@@ -10,7 +10,6 @@ from yara.services.conversation import Conversation
 
 ROUTES = [handlers.rag_request]
 
-counter = 0
 
 
 def router(query: str, conversation: Conversation) -> Callable:

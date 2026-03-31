@@ -1,19 +1,11 @@
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks_pretty
-from yara.services.openai_client import client
+from yara.services.openai_client import simple_llm_call
 
 
-def _get_response_and_augment_convo(conversation: Conversation) -> str:
-    response = client.responses.create(
-        model="gpt-4.1-2025-04-14",
-        input=conversation.entries(),  # type: ignore
-        temperature=0,
-    )
-
-    response_text = response.output_text
-
+def _get_response_and_update_convo(conversation: Conversation) -> str:
+    response_text = simple_llm_call(conversation)
     conversation.add_entry("assistant", response_text)
-
     return response_text
 
 
@@ -47,8 +39,11 @@ def rag_request(query: str, conversation: Conversation) -> str:
             """,
     )
 
-    return _get_response_and_augment_convo(conversation)
+    return _get_response_and_update_convo(conversation)
 
+def simple_request(query, conversation) -> str:
+    conversation.add_entry(query)
+    return _get_response_and_update_convo(conversation)
 
 def ask_about_new_topic(query: str, conversation: Conversation) -> str:
     """
@@ -87,4 +82,4 @@ def new_topic(query: str, conversation: Conversation) -> str:
     )
     conversation.add_entry("user", query)
 
-    return _get_response_and_augment_convo(conversation)
+    return _get_response_and_update_convo(conversation)
