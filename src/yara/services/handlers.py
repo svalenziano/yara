@@ -14,7 +14,7 @@ def initialize_conversation(greeting=None) -> list[dict]:
     return conversation
 
 
-def get_response_and_augment_convo(conversation) -> str:
+def _get_response_and_augment_convo(conversation) -> str:
     response = client.responses.create(
         model="gpt-4.1-2025-04-14",
         input=conversation,  # type: ignore
@@ -33,14 +33,14 @@ def get_response_and_augment_convo(conversation) -> str:
     return response_text
 
 
-def first_rag_request(query, conversation) -> str:
+def rag_request(query, conversation) -> str:
     """
+    Augment the conversation with chunks from the vector DB and
+    query the LLM for a response
+
     Input: query and convo
     Side effects: mutate convo to reflect new interactions
     Return: last assistant response
-
-    Algo:
-        - Augment convo w chunks from vector DB
     """
     found = query_similar_chunks_pretty(query)
 
@@ -49,7 +49,8 @@ def first_rag_request(query, conversation) -> str:
             "role": "user",
             "content": f"""Please use these documents to answer my question.
             Please do NOT rely on your training knowledge to answer my question.
-            If the question is not answerable based on these documents, please let me know.
+            If the question is not answerable based on these documents, 
+            please let me know.
 
             Here are the documents:
             <documents>
@@ -64,12 +65,14 @@ def first_rag_request(query, conversation) -> str:
         }
     )
 
-    return get_response_and_augment_convo(conversation)
+    return _get_response_and_augment_convo(conversation)
 
 
 def ask_about_new_topic(query, conversation) -> str:
     """
-    The user has asked about something that seems very different from the previous line of questioning.  Ask the user if they want to start a new conversation.
+    The user has asked about something that seems very different from
+    the previous line of questioning.  Ask the user if they want to start
+    a new conversation.
     """
     response = "It sounds like you'd like to start a conversation about a new topic, is this correct?"
 
@@ -102,4 +105,4 @@ def new_topic(query, conversation) -> str:
         {"role": "user", "content": query},
     ]
 
-    return get_response_and_augment_convo(conversation)
+    return _get_response_and_augment_convo(conversation)
