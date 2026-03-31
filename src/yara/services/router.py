@@ -21,31 +21,20 @@ logger = logging.getLogger(__name__)
 
 
 def router(query: str, conversation: Conversation) -> Callable:
-    """
-    # TODO: determine whether user is asking about current
-        information, or new information
-
-
-        Idea:
-            - query LLM - new or old information?
-            - if new, then do RAG
-            - if old, then pass existing history with new user query
-    """
-
     if len(conversation) <= 3:  # Conversation has just begun
         logger.info("routing to rag_request (conversation start)")
         return handlers.rag_request
 
-    # TODO: CLASSIFY the request and return a specific handler
-    # Tell the LLM what handlers you have, provide the conversation history.
-    # let the LLM decide on the route
-    # return the appropriate route
-    logger.info("routing to rag_request")
-    return handlers.rag_request
+    chosen = classify_request(query, conversation, ROUTES)
+    logger.info("routing to %s", chosen.__name__)
+    return chosen
 
 
 if __name__ == "__main__":
     c = Conversation()
     c.add_entry(role="user", content="What documents do I have that explain Arduino?")
-    classified = classify_request(c, ROUTES)
-    print(classified)
+    print("Classifying...")
+    classified = classify_request(
+        "What documents do I have that explain Arduino?", c, ROUTES
+    )
+    print(classified.__name__)

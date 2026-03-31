@@ -55,7 +55,7 @@ def simple_request(query: str, conversation: Conversation) -> str:
     The user's request can be answered without retrieving more docs.
     Formulate a response and respond to the user with that response.
     """
-    conversation.add_entry('user',query)
+    conversation.add_entry('user', query)
     return _get_response_and_update_convo(conversation)
 
 

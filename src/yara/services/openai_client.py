@@ -1,7 +1,9 @@
+from enum import Enum
 from textwrap import dedent
 from typing import Callable
 
 from openai import OpenAI
+from pydantic import BaseModel
 from rich import print
 
 from yara.config import env
@@ -42,7 +44,7 @@ def prettify(docstring: str):
 
 
 def classify_request(
-    conversation: Conversation, possible_options: list[Callable]
+    query: str, conversation: Conversation, possible_options: list[Callable]
 ) -> Callable:
     """
     Make a routing decision
@@ -69,8 +71,37 @@ def classify_request(
         for option in possible_options
     ]
 
-    print(options_for_llm)
-    return possible_options[0]
+    RouteEnum = Enum(
+        "RouteEnum", {opt["route_name"]: opt["route_name"] for opt in options_for_llm}
+    )
+
+    class RoutingDecision(BaseModel):
+        route_name: RouteEnum  # type: ignore[valid-type]
+
+    routes_text = "\n".join(
+        f"- {opt['route_name']}: {opt['route_description']}" for opt in options_for_llm
+    )
+    routing_prompt = (
+        "Based on the conversation and the user's latest message, "
+        "select the most appropriate route.\n\n"
+        f"User's latest message: {query}\n\n"
+        f"Available routes:\n{routes_text}"
+    )
+
+    augmented = conversation.get_augmented_entries(routing_prompt)
+    response = client.responses.parse(
+        model=MODELS["fast"],
+        input=augmented,  # type: ignore[arg-type]
+        text_format=RoutingDecision,
+        temperature=0,
+    )
+    chosen_name = response.output_parsed.route_name.value  # type: ignore[union-attr]
+
+    for option in possible_options:
+        if option.__name__ == chosen_name:
+            return option
+
+    raise Exception("ROUTING ERROR: Valid route was not found")
 
 
 def enrich_query(conversation: Conversation) -> str:
