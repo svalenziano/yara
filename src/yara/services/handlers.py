@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 def _get_response_and_update_convo(conversation: Conversation) -> str:
+    """
+    Utility function: get a simple response from the LLM,
+    update the convo, and return the response text.
+    """
     response_text = simple_llm_call(conversation)
     logger.info("llm response: %s", response_text)
     conversation.add_entry("assistant", response_text)
@@ -16,12 +20,10 @@ def _get_response_and_update_convo(conversation: Conversation) -> str:
 
 def rag_request(query: str, conversation: Conversation) -> str:
     """
-    Augment the conversation with chunks from the vector DB and
-    query the LLM for a response
+    The user's questions can't be answered by the above conversation history.
+    Augment the conversation with chunks from the vector DB and ask
+    another assistant to analyze the results.
 
-    Input: query and convo
-    Side effects: mutate convo to reflect new interactions
-    Return: last assistant response
     """
     found = query_similar_chunks_pretty(query)
     logger.debug("retrieved chunks: %s", found)
@@ -49,6 +51,10 @@ def rag_request(query: str, conversation: Conversation) -> str:
 
 
 def simple_request(query, conversation) -> str:
+    """
+    The user's request can be answered without retrieving more docs.
+    Formulate a response and respond to the user with that response.
+    """
     conversation.add_entry(query)
     return _get_response_and_update_convo(conversation)
 
@@ -74,10 +80,6 @@ def new_topic(query: str, conversation: Conversation) -> str:
     """
     The user has asked to start a conversation about a new topic.
     The conversation will be compressed to make room for the new convo.
-
-
-    TODO - actually compress the history instead of this hacky method!
-
     """
     summary = (
         "You just had a conversation about another topic,"

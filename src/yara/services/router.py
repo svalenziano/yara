@@ -9,8 +9,14 @@ from pydantic import BaseModel
 
 import yara.services.handlers as handlers
 from yara.services.conversation import Conversation
+from yara.services.openai_client import classify_request
 
-ROUTES = [handlers.rag_request]
+ROUTES = [
+    handlers.rag_request,
+    handlers.simple_request,
+    handlers.new_topic,
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,3 +42,10 @@ def router(query: str, conversation: Conversation) -> Callable:
     # return the appropriate route
     logger.info("routing to rag_request")
     return handlers.rag_request
+
+
+if __name__ == "__main__":
+    c = Conversation()
+    c.add_entry(role="user", content="What documents do I have that explain Arduino?")
+    classified = classify_request(c, ROUTES)
+    print(classified)

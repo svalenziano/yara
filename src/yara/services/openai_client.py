@@ -2,6 +2,7 @@ from textwrap import dedent
 from typing import Callable
 
 from openai import OpenAI
+from rich import print
 
 from yara.config import env
 from yara.services.conversation import Conversation
@@ -15,20 +16,53 @@ MODELS = {
 }
 
 
+def prettify(docstring: str):
+    """
+    Extracts the important part of the docstring:
+
+    Before:
+        This function doe
+        very important stuff.
+
+        Args: lorem
+        Returns: ipsum
+    
+    After:
+        This function does stuff very important stuff
+    """
+    return "TODO"
+
+
 def classify_request(
     conversation: Conversation, possible_options: list[Callable]
-) -> str:
+) -> Callable:
     """
     Make a routing decision
 
     Input = query
     Output = query path aka routing decision.  Must one one of `possible_options`
+
+    Algo:
+        - format possible_options in the format that OpenAI wants
+            - use the function __name__ and __doc__ to pass relevant info to OpenAI
+        - query the LLM Structured Output
+        - return the result to the user
     """
     if not possible_options:
         raise TypeError("possible_options must be provided")
 
-    options = {}
-    return "PLACEHOLDER TKTK"
+    options_for_llm = [
+        {
+            "route_name": option.__name__,
+            "route_description": dedent(
+                prettify(option.__doc__ if option.__doc__ else "")
+            ),
+        }
+        for option in possible_options
+    ]
+
+    print(options_for_llm)
+    return possible_options[0]
 
 
 def enrich_query(conversation: Conversation) -> str:
@@ -123,3 +157,7 @@ def generate_single_embedding(text: str) -> list[float]:
     Returns a single embedding e.g. [1.23, 4.56, ... , 7.89]
     """
     return generate_embeddings([text])[0].embedding
+
+
+if __name__ == "__main__":
+    pass
