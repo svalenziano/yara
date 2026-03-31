@@ -9,12 +9,7 @@ from prompt_toolkit.cursor_shapes import CursorShape
 from yara.services.router import router
 from yara.services.handlers import initialize_conversation
 
-
-
 console = Console()
-
-
-
 
 def get_user_input(history):
     return prompt(
@@ -22,7 +17,6 @@ def get_user_input(history):
         history=history,
         cursor=CursorShape.BLINKING_BLOCK,
     )
-
 
 def render_assistant(text):
     console.print()
@@ -45,7 +39,7 @@ def chat_loop():
             break
 
         if ask.strip().lower().strip("/") == "exit":
-            console.print("\nGoodbye!")
+            render_assistant("Goodbye!")
             break
 
         if not ask.strip():
