@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from yara.services.conversation import Conversation
 from yara.services.handlers import initialize_conversation
 from yara.services.router import router
 
@@ -27,15 +28,15 @@ def render_assistant(text):
 
 
 def chat_loop():
-    history_file = FileHistory(".yara_chat_history")
+    cli_history_file = FileHistory(".yara_chat_history")
 
-    conversation = initialize_conversation()
+    conversation = Conversation()
 
-    render_assistant(conversation[-1]["content"])
+    render_assistant(conversation.first_assistant_prompt())
 
     while True:
         try:
-            ask = get_user_input(history_file)
+            ask = get_user_input(cli_history_file)
         except (EOFError, KeyboardInterrupt):
             render_assistant("Goodbye!")
             break

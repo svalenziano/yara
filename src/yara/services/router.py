@@ -5,13 +5,14 @@ LLM-powered routing and classification
 from typing import Callable
 
 import yara.services.handlers as handlers
+from yara.services.conversation import Conversation
 
 # ROUTES = [rag_request]
 
 counter = 0
 
 
-def router(query: str, conversation: list[dict]) -> Callable:
+def router(query: str, conversation: Conversation) -> Callable:
     """
     # TODO: determine whether user is asking about current
         information, or new information
