@@ -1,3 +1,5 @@
+import logging
+
 from prompt_toolkit import prompt
 from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.formatted_text import HTML
@@ -10,6 +12,7 @@ from yara.services.conversation import Conversation
 from yara.services.router import router
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def get_user_input(history):
@@ -47,9 +50,11 @@ def chat_loop():
         if not ask.strip():
             continue
 
+        logger.info("user: %s", ask)
         handler = router(ask, conversation)
         llm_response = handler(ask, conversation)
 
+        logger.info("assistant: %s", llm_response)
         render_assistant(llm_response)
 
 

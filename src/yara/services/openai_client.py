@@ -1,7 +1,6 @@
 from textwrap import dedent
 from typing import Callable
 
-
 from openai import OpenAI
 
 from yara.config import env
@@ -29,7 +28,7 @@ def classify_request(
         raise TypeError("possible_options must be provided")
 
     options = {}
-    pass
+    return "PLACEHOLDER TKTK"
 
 
 def enrich_query(conversation: Conversation) -> str:
@@ -55,14 +54,16 @@ def enrich_query(conversation: Conversation) -> str:
 
     return response.output_text
 
+
 def simple_llm_call(conversation: Conversation) -> str:
     response = client.responses.create(
-        model=MODELS['normal'],
-        input=conversation.entries(),  # type: ignore
+        model=MODELS["normal"],
+        input=conversation.get_entries(),  # type: ignore
         temperature=0,
     )
 
     return response.output_text
+
 
 def generate_embeddings(text: list[str], metadata: list[dict] = []):
     """

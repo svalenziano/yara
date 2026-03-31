@@ -1,10 +1,15 @@
+import logging
+
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks_pretty
 from yara.services.openai_client import simple_llm_call
 
+logger = logging.getLogger(__name__)
+
 
 def _get_response_and_update_convo(conversation: Conversation) -> str:
     response_text = simple_llm_call(conversation)
+    logger.info("llm response: %s", response_text)
     conversation.add_entry("assistant", response_text)
     return response_text
 
@@ -19,6 +24,7 @@ def rag_request(query: str, conversation: Conversation) -> str:
     Return: last assistant response
     """
     found = query_similar_chunks_pretty(query)
+    logger.debug("retrieved chunks: %s", found)
 
     conversation.add_entry(
         "user",
@@ -41,9 +47,11 @@ def rag_request(query: str, conversation: Conversation) -> str:
 
     return _get_response_and_update_convo(conversation)
 
+
 def simple_request(query, conversation) -> str:
     conversation.add_entry(query)
     return _get_response_and_update_convo(conversation)
+
 
 def ask_about_new_topic(query: str, conversation: Conversation) -> str:
     """

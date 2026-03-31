@@ -1,7 +1,8 @@
+import logging
 from collections.abc import Sequence
 from typing import Literal, TypedDict
 
-from rich import print
+logger = logging.getLogger(__name__)
 
 Role = Literal["developer", "assistant", "user"]
 
@@ -59,8 +60,8 @@ class Conversation:
         result = [*self.get_entries()] + [
             {"role": "developer", "content": developer_prompt}
         ]
-        print(result)
-        print(self.get_entries() is result)
+        logger.debug("augmented entries: %s", result)
+        logger.debug("augmented entries is a copy: %s", self.get_entries() is not result)
         return result
 
 
