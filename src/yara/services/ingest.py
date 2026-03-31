@@ -9,7 +9,7 @@ from math import ceil
 
 from yara.config import env
 from yara.db.pgvector import get_chunk_count, get_max_project_id, insert_chunks
-from yara.services.openai_embedding import generate_embeddings
+from yara.services.openai_client import generate_embeddings
 from yara.types import Chunk, FileBundle
 
 MOCK = False  # not implemented

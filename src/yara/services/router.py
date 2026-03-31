@@ -7,7 +7,7 @@ from typing import Callable
 import yara.services.handlers as handlers
 from yara.services.conversation import Conversation
 
-# ROUTES = [rag_request]
+ROUTES = [handlers.rag_request]
 
 counter = 0
 
@@ -21,10 +21,9 @@ def router(query: str, conversation: Conversation) -> Callable:
         Idea:
             -
     """
-    global counter
-    counter += 1
 
-    if counter <= 1:
+
+    if len(conversation) <= 3:  # Conversation has just begun
         return handlers.rag_request
 
     # TODO: CLASSIFY the request and return a specific handler

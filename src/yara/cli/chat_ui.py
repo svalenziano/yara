@@ -7,7 +7,6 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from yara.services.conversation import Conversation
-from yara.services.handlers import initialize_conversation
 from yara.services.router import router
 
 console = Console()

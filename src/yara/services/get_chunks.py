@@ -3,7 +3,7 @@ Query the ingested data
 """
 
 from yara.db.pgvector import get_similar_chunks
-from yara.services.openai_embedding import generate_single_embedding
+from yara.services.openai_client import generate_single_embedding
 
 
 def query_similar_chunks(query_text: str, top_k=10):
