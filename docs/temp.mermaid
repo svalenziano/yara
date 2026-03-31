@@ -1,0 +1,7 @@
+flowchart LR                                                                        
+    chat_ui -->|"classify(query, history)"| router                                  
+    router -->|route string| chat_ui                                                
+    chat_ui -->|"ROUTE_HANDLERS[route](query, conv)"| handlers                      
+    handlers --> get_chunks                                                         
+    handlers --> openai_client                                                      
+    handlers --> ingest     

@@ -53,8 +53,6 @@ def chat_loop():
         if not ask.strip():
             continue
 
-        found = query_similar_chunks_pretty(ask)
-
         """
         Todo: classifier
 
@@ -66,6 +64,12 @@ def chat_loop():
             2) 
                 - ???
         """
+
+        
+
+        found = query_similar_chunks_pretty(ask)
+
+
 
         conversation.append({
             "role": "user",
