@@ -50,7 +50,7 @@ class Conversation:
 
     def replace_last_entry(self, role: Role, content: str):
         last_entry = self.entries[-1]
-        if last_entry['role'] != role or last_entry['content'] != content:
+        if last_entry['role'] != role:
             raise ValueError(f"Role mismatch: old={last_entry['role']} & new={role}")
         self.entries[-1] = {'role': role, 'content': content}
 

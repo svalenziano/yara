@@ -23,11 +23,12 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
-def router(query: str, conversation: Conversation) -> Callable:
+def router(conversation: Conversation) -> Callable:
     if len(conversation) <= 3:  # Conversation has just begun
         logger.info("routing to rag_request (conversation start)")
         return handlers.rag_request
 
+    query = conversation.get_last_user_query()
     chosen = classify_request(query, conversation, ROUTES)
     logger.info("routing to %s", chosen.__name__)
     return chosen

@@ -24,7 +24,7 @@ def rag_request(conversation: Conversation) -> str:
     for relevant documents. Use this route when the user asks about facts,
     topics, or details that should come from their stored documents.
     """
-    query = conversation.get_entries()[-1]['content']
+    query = conversation.get_last_user_query()
     found = query_similar_chunks_pretty(query)
     logger.debug("retrieved chunks: %s", found)
 
@@ -50,16 +50,15 @@ def rag_request(conversation: Conversation) -> str:
     return _get_llM_response_and_update_convo(conversation)
 
 
-def simple_request(query: str, conversation: Conversation) -> str:
+def simple_request(conversation: Conversation) -> str:
     """
     The user's request can be answered without retrieving more docs.
     Respond to the user with the context you currently have.
     """
-    conversation.add_entry('user', query)
     return _get_llM_response_and_update_convo(conversation)
 
 
-def ask_about_new_topic(query: str, conversation: Conversation) -> str:
+def ask_about_new_topic(conversation: Conversation) -> str:
     """
     The user has asked about something that seems very different from
     the previous line of questioning.  Ask the user if they want to start
@@ -70,17 +69,17 @@ def ask_about_new_topic(query: str, conversation: Conversation) -> str:
         " about a new topic, is this correct?"
     )
 
-    conversation.add_entry("user", query)
     conversation.add_entry("assistant", response)
 
     return response
 
 
-def new_topic(query: str, conversation: Conversation) -> str:
+def new_topic(conversation: Conversation) -> str:
     """
     The user has asked to start a conversation about a new topic.
     The conversation will be compressed to make room for the new convo.
     """
+    query = conversation.get_last_user_query()
     summary = (
         "You just had a conversation about another topic,"
         " and the user is now asking about a new topic.  "

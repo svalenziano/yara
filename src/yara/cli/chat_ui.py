@@ -51,8 +51,9 @@ def chat_loop():
             continue
 
         logger.info("user: %s", query)
-        handler = router(query, conversation)
-        llm_response = handler(query, conversation)
+        conversation.add_entry('user', query)
+        handler = router(conversation)
+        llm_response = handler(conversation)
 
         logger.info("assistant: %s", llm_response)
         render_assistant(llm_response)
