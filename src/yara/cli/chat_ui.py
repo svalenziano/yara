@@ -6,8 +6,8 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.cursor_shapes import CursorShape
 
-from yara.services.get_chunks import query_similar_chunks_pretty
-from yara.services.openai_client import client
+from yara.services.router import router
+
 
 
 console = Console()
@@ -65,42 +65,10 @@ def chat_loop():
                 - ???
         """
 
-        
+        route = router(ask, conversation)
+        llm_response = route(ask, conversation)
 
-        found = query_similar_chunks_pretty(ask)
-
-
-
-        conversation.append({
-            "role": "user",
-            "content": f"""Please use these documents to answer my question.
-                Please do NOT rely on your training knowledge to answer my question.
-                If the question is not answerable based on these documents, please let me know.
-
-                Here are the documents:
-                <documents>
-                {found}
-                </documents>
-
-                Here is my question:
-                <question>
-                {ask}
-                </question>
-                """,
-        })
-
-        response = client.responses.create(
-            model="gpt-4.1-2025-04-14",
-            input=conversation,  # type: ignore
-            temperature=0,
-        )
-
-        conversation.append({
-            "role": "assistant",
-            "content": response.output_text,
-        })
-
-        render_assistant(response.output_text)
+        render_assistant(llm_response)
 
 
 if __name__ == "__main__":
