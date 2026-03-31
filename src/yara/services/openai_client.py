@@ -26,11 +26,19 @@ def prettify(docstring: str):
 
         Args: lorem
         Returns: ipsum
-    
+
     After:
         This function does stuff very important stuff
     """
-    return "TODO"
+    lines = docstring.splitlines()
+    summary = []
+    for line in lines:
+        if line.strip() == "":
+            if summary:
+                break
+        else:
+            summary.append(line.strip())
+    return " ".join(summary)
 
 
 def classify_request(
