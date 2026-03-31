@@ -32,8 +32,7 @@ def router(query: str, conversation: Conversation) -> Callable:
     logger.info("routing to %s", chosen.__name__)
     return chosen
 
-
-if __name__ == "__main__":
+def _test():
     convo = Conversation()
     convo.add_entry(
         role="user", content="What documents do I have that explain Arduino?"
@@ -44,3 +43,6 @@ if __name__ == "__main__":
         "What documents do I have that explain Arduino?", convo, ROUTES, verbose=True
     )
     console.log(classified.__name__)
+
+if __name__ == "__main__":
+    _test()

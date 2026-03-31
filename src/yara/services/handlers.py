@@ -20,10 +20,9 @@ def _get_response_and_update_convo(conversation: Conversation) -> str:
 
 def rag_request(query: str, conversation: Conversation) -> str:
     """
-    The user's questions can't be answered by the above conversation history.
-    Augment the conversation with chunks from the vector DB and ask
-    another assistant to analyze the results.
-
+    The user is asking a question that requires searching the knowledge base
+    for relevant documents. Use this route when the user asks about facts,
+    topics, or details that should come from their stored documents.
     """
     found = query_similar_chunks_pretty(query)
     logger.debug("retrieved chunks: %s", found)
@@ -53,7 +52,7 @@ def rag_request(query: str, conversation: Conversation) -> str:
 def simple_request(query: str, conversation: Conversation) -> str:
     """
     The user's request can be answered without retrieving more docs.
-    Formulate a response and respond to the user with that response.
+    Respond to the user with the context you currently have.
     """
     conversation.add_entry('user', query)
     return _get_response_and_update_convo(conversation)

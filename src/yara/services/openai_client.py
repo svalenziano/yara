@@ -4,7 +4,6 @@ from typing import Callable
 
 from openai import OpenAI
 from pydantic import BaseModel
-
 from rich import print
 from rich.console import Console
 
