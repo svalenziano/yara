@@ -29,11 +29,17 @@ python -m yara.main
 		- [x] return the top_k matches
 - [ ] Interactive CLI
 	- [ ] LLM-powered question answering based on semantic query
-		- [ ] super basic - no classification - new context on every request - do the standard Wengrow loop
+		- [x] super basic - no classification - new context on every request - do the standard Wengrow loop
 		- [ ] routing / classification step
-		- [ ] LLM provides filename references
+			- [ ] question about new topic (retrieve!)
+			- [ ] question about current topic (no retrieval)
+		- [ ] LLM provides references to actual content:
+			- relevant text excerpt
+			- highlighted terms from user query
+			- filename
 	- [ ] ~~semantic query - return data in LLM-friendly format~~  Only do this if the LLM has trouble
 	- [ ] Initiate ingestion
+	- [ ] Smart ingestion - only re-ingest files that have changed
 - [ ] Bonus points:
 	- [ ] DB:
 		- [ ] Create relationship between `chunk` and `file` instead of denormalizing data into each chunk.  
@@ -105,10 +111,14 @@ aa-->a
 a("`**Routing step**
 LLM Classifies the request, 
 App routes the request`")
-a-->b(User is asking about content)-->c(RAG)
+a-->b(Q about content on a specific topic)-->c(RAG) --> z
+a-->k(Q about a new topic) --> l(Re-write/compress history) --> c --> z
+a-->m(Follow-up Q on retrieved content)-->z
+a-->i(User is asking for an overview of the files in the system)-->j('fd' or Tree)
 a-->d(Ingestion, aka User wants to add more content)-->e(Ingestion pipeline)
 a-->f(User is done)-->Exit
 a-->g(Something else)-->h(Oops, can't do that.  Here are your options.)-->aa
+z(LLM 'Explainer' Call)
 ```
 
 ### The "Agent Loop"

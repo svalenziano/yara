@@ -6,7 +6,7 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.cursor_shapes import CursorShape
 
-from yara.services.query import simple_query
+from yara.services.query import query_similar_chunks_pretty
 from yara.services.openai_client import client
 
 
@@ -43,7 +43,7 @@ def chat_loop():
         try:
             ask = get_user_input(history_file)
         except (EOFError, KeyboardInterrupt):
-            console.print("\nGoodbye!")
+            render_assistant("Goodbye!")
             break
 
         if ask.strip().lower().strip("/") == "exit":
@@ -53,7 +53,7 @@ def chat_loop():
         if not ask.strip():
             continue
 
-        found = simple_query(ask)
+        found = query_similar_chunks_pretty(ask)
 
         conversation.append({
             "role": "user",
