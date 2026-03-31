@@ -4,11 +4,14 @@ from typing import Callable
 
 from openai import OpenAI
 from pydantic import BaseModel
+
 from rich import print
+from rich.console import Console
 
 from yara.config import env
 from yara.services.conversation import Conversation
 
+console = Console()
 client = OpenAI(api_key=env["OPENAI_API_KEY"])
 
 MODELS = {
@@ -44,7 +47,10 @@ def prettify(docstring: str):
 
 
 def classify_request(
-    query: str, conversation: Conversation, possible_options: list[Callable]
+    query: str,
+    conversation: Conversation,
+    possible_options: list[Callable],
+    verbose=False,
 ) -> Callable:
     """
     Make a routing decision
@@ -81,14 +87,21 @@ def classify_request(
     routes_text = "\n".join(
         f"- {opt['route_name']}: {opt['route_description']}" for opt in options_for_llm
     )
-    routing_prompt = (
-        "Based on the conversation and the user's latest message, "
-        "select the most appropriate route.\n\n"
-        f"User's latest message: {query}\n\n"
-        f"Available routes:\n{routes_text}"
-    )
+
+    routing_prompt = dedent(f"""
+    Based on the conversation and the user's latest message,
+    please select the most appropriate route.
+
+    User's latest message: {query}
+
+    Available routes:\n{routes_text}
+    """)
 
     augmented = conversation.get_augmented_entries(routing_prompt)
+
+    if verbose:
+        console.log(augmented)
+
     response = client.responses.parse(
         model=MODELS["fast"],
         input=augmented,  # type: ignore[arg-type]
@@ -101,7 +114,7 @@ def classify_request(
         if option.__name__ == chosen_name:
             return option
 
-    raise Exception("ROUTING ERROR: Valid route was not found")
+    raise Exception("ROUTING ERROR:Valid route was not found")
 
 
 def enrich_query(conversation: Conversation) -> str:

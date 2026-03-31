@@ -6,6 +6,8 @@ import logging
 from typing import Callable
 
 from pydantic import BaseModel
+from rich import print
+from rich.console import Console
 
 import yara.services.handlers as handlers
 from yara.services.conversation import Conversation
@@ -18,6 +20,7 @@ ROUTES = [
 ]
 
 logger = logging.getLogger(__name__)
+console = Console()
 
 
 def router(query: str, conversation: Conversation) -> Callable:
@@ -31,10 +34,13 @@ def router(query: str, conversation: Conversation) -> Callable:
 
 
 if __name__ == "__main__":
-    c = Conversation()
-    c.add_entry(role="user", content="What documents do I have that explain Arduino?")
-    print("Classifying...")
-    classified = classify_request(
-        "What documents do I have that explain Arduino?", c, ROUTES
+    convo = Conversation()
+    convo.add_entry(
+        role="user", content="What documents do I have that explain Arduino?"
     )
-    print(classified.__name__)
+    console.log(convo.get_entries())
+    console.log("Classifying...")
+    classified = classify_request(
+        "What documents do I have that explain Arduino?", convo, ROUTES, verbose=True
+    )
+    console.log(classified.__name__)
