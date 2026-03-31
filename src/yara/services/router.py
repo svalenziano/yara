@@ -32,17 +32,23 @@ def router(query: str, conversation: Conversation) -> Callable:
     logger.info("routing to %s", chosen.__name__)
     return chosen
 
-def _test():
-    convo = Conversation()
-    convo.add_entry(
-        role="user", content="What documents do I have that explain Arduino?"
-    )
-    console.log(convo.get_entries())
-    console.log("Classifying...")
-    classified = classify_request(
-        "What documents do I have that explain Arduino?", convo, ROUTES, verbose=True
-    )
-    console.log(classified.__name__)
+def _test_router():
+    for query in [
+        "I'm looking for an electrician",
+        "What documents do I have that explain Arduino?",
+        "How did you arrive at that answer?",
+        "Oh really, tell me more"
+    ]:
+        convo = Conversation()
+        convo.add_entry("user","What is 1 + 1?")
+        convo.add_entry("assistant","2")
+        
+        # console.log(convo.get_entries())
+        console.log("Classifying...")
+        classified = classify_request(
+            query, convo, ROUTES, verbose=True
+        )
+        console.log(classified.__name__)
 
 if __name__ == "__main__":
-    _test()
+    _test_router()

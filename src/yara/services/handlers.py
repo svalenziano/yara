@@ -7,7 +7,7 @@ from yara.services.openai_client import simple_llm_call
 logger = logging.getLogger(__name__)
 
 
-def _get_response_and_update_convo(conversation: Conversation) -> str:
+def _get_llM_response_and_update_convo(conversation: Conversation) -> str:
     """
     Utility function: get a simple response from the LLM,
     update the convo, and return the response text.
@@ -46,7 +46,7 @@ def rag_request(query: str, conversation: Conversation) -> str:
             """,
     )
 
-    return _get_response_and_update_convo(conversation)
+    return _get_llM_response_and_update_convo(conversation)
 
 
 def simple_request(query: str, conversation: Conversation) -> str:
@@ -55,7 +55,7 @@ def simple_request(query: str, conversation: Conversation) -> str:
     Respond to the user with the context you currently have.
     """
     conversation.add_entry('user', query)
-    return _get_response_and_update_convo(conversation)
+    return _get_llM_response_and_update_convo(conversation)
 
 
 def ask_about_new_topic(query: str, conversation: Conversation) -> str:
@@ -91,4 +91,4 @@ def new_topic(query: str, conversation: Conversation) -> str:
     )
     conversation.add_entry("user", query)
 
-    return _get_response_and_update_convo(conversation)
+    return _get_llM_response_and_update_convo(conversation)

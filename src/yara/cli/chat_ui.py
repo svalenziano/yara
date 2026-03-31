@@ -38,21 +38,21 @@ def chat_loop():
 
     while True:
         try:
-            ask = get_user_input(cli_history_file)
+            query = get_user_input(cli_history_file)
         except (EOFError, KeyboardInterrupt):
             render_assistant("Goodbye!")
             break
 
-        if ask.strip().lower().strip("/") == "exit":
+        if query.strip().lower().strip("/") == "exit":
             render_assistant("Goodbye!")
             break
 
-        if not ask.strip():
+        if not query.strip():
             continue
 
-        logger.info("user: %s", ask)
-        handler = router(ask, conversation)
-        llm_response = handler(ask, conversation)
+        logger.info("user: %s", query)
+        handler = router(query, conversation)
+        llm_response = handler(query, conversation)
 
         logger.info("assistant: %s", llm_response)
         render_assistant(llm_response)
