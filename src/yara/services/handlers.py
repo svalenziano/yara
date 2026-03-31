@@ -18,16 +18,17 @@ def _get_llM_response_and_update_convo(conversation: Conversation) -> str:
     return response_text
 
 
-def rag_request(query: str, conversation: Conversation) -> str:
+def rag_request(conversation: Conversation) -> str:
     """
     The user is asking a question that requires searching the knowledge base
     for relevant documents. Use this route when the user asks about facts,
     topics, or details that should come from their stored documents.
     """
+    query = conversation.get_entries()[-1]['content']
     found = query_similar_chunks_pretty(query)
     logger.debug("retrieved chunks: %s", found)
 
-    conversation.add_entry(
+    conversation.replace_last_entry(
         "user",
         f"""Please use these documents to answer my question.
             Please do NOT rely on your training knowledge to answer my question.

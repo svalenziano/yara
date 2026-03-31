@@ -45,6 +45,15 @@ class Conversation:
         self.add_entry("developer", developer_content)
         self.add_entry("assistant", greeting)
 
+    def get_last_user_query(self) -> str:
+        return [x['content'] for x in self.entries if x['role'] == 'user'][-1] or ""
+
+    def replace_last_entry(self, role: Role, content: str):
+        last_entry = self.entries[-1]
+        if last_entry['role'] != role or last_entry['content'] != content:
+            raise ValueError(f"Role mismatch: old={last_entry['role']} & new={role}")
+        self.entries[-1] = {'role': role, 'content': content}
+
     def get_entries(self) -> Sequence[Entry]:
         """
         Warning: do not mutate the object returned by this method!
