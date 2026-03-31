@@ -2,7 +2,7 @@
 Query the ingested data
 """
 
-
+from rich import print
 from yara.services.openai_embedding import generate_single_embedding
 from yara.db.pgvector import get_similar_chunks
 from yara.services.openai_client import client
@@ -29,7 +29,7 @@ def simple_query(query_text: str) -> str:
     
     return result
 
-def main():
+def llm_query_loop():
     system_prompt = "You are a helpful AI assistant tasked with helping the user find materials within a database of documents."
     first_prompt = 'How can I help you today?'
     history = [
@@ -73,7 +73,7 @@ def main():
 
         response = client.responses.create(
             model="gpt-4.1-2025-04-14",
-            input=history,
+            input=history,  # type: ignore
             temperature=0,
         )
 
@@ -94,4 +94,4 @@ def main():
 
 if __name__ == "__main__":
     # print(simple_query("Dogs"))
-    main()
+    llm_query_loop()
