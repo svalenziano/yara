@@ -76,8 +76,12 @@ def chat_loop():
             },
         ) as span:
             conversation.add_entry("user", query)
+
+            # do RAG at every loop, for now.  Todo: add real routing
             handler = not_a_router(conversation)
             llm_response_stream = handler(conversation)
+
+            # render response and provide full response for logging
             llm_response = stream_assistant(llm_response_stream)
             span.set_attribute("output.value", llm_response)
 
