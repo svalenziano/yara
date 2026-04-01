@@ -1,6 +1,11 @@
 import logging
+from typing import cast
 
 from yara.cli.chat_ui import chat_loop
+
+
+class YaraLogger(logging.Logger):
+    log_chunks: bool = False
 
 
 def main():
@@ -10,7 +15,9 @@ def main():
         format="%(asctime)s %(levelname)s %(name)s:%(lineno)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logging.getLogger("yara").setLevel(logging.DEBUG)
+    logger = cast(YaraLogger, logging.getLogger("yara"))
+    logger.setLevel(logging.INFO)
+    logger.log_chunks = False
 
     chat_loop()
 

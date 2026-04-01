@@ -1,4 +1,5 @@
 import logging
+from textwrap import dedent
 from collections.abc import Sequence
 from typing import Literal, TypedDict
 
@@ -12,9 +13,11 @@ class Entry(TypedDict):
     content: str
 
 
-SYSTEM_PROMPT = (
-    "You are a helpful AI assistant tasked with helping the user"
-    " find materials within a database of documents.  "
+SYSTEM_PROMPT = dedent(
+    """
+    You are a helpful AI assistant tasked with helping the user
+    find materials within a database of documents.
+    """.strip()
 )
 
 DEFAULT_GREETING = "How can I help you today?"

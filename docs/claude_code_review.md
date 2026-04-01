@@ -1,113 +1,110 @@
-# Code Review: `src/yara/services/ingest.py`
+# Code Review: `src/yara/services/`
 
 **Reviewer:** Claude Code
-**Date:** 2026-03-29
+**Date:** 2026-03-31
 
 ---
 
-## Summary
+## `conversation.py`
 
-The ingestion pipeline reads files from disk, chunks them, generates OpenAI embeddings, and inserts everything into pgvector. The overall flow is clear and well-structured. Below are findings organized by severity.
-
----
-
-## Critical
-
-### 1. No token/size guard on the OpenAI embedding request (line 183)
-
-`generate_embeddings(texts)` sends **all** chunk texts in a single API call. The OpenAI embeddings endpoint has a **300,000 token per-request limit** (noted in the TODO on line 153). A large directory could easily exceed this and produce a hard failure after all the file I/O work is already done.
-
-**Recommendation:** Batch `texts` into groups that stay under the token limit (a rough heuristic: `sum(len(t) / 4 for t in batch) < 300_000`) and call `generate_embeddings` per batch.
-
-### 2. `_bundle_files` generator yields results *then* raises after exhaustion (lines 101-124)
-
-The generator yields `FileBundle`s as it goes, but collects `IOError`s and raises a combined error only after the generator is fully consumed. By that point, `_files_to_chunks` has already built a chunk list from the successful files, and `ingest_files_to_db` proceeds to embed and insert them before the error can surface. In practice, the raise on line 124 fires **after** the `for file in files` loop in `_files_to_chunks` exits normally, so the exception is never raised at all -- the error is silently swallowed.
-
-**Recommendation:** Either fail fast on the first `IOError`, or collect errors and report them *after* the full pipeline completes (outside the generator), making it explicit that partial ingestion occurred.
-
----
-
-## Bugs
-
-### 3. `_get_all_filepaths` doesn't respect `limit` across subdirectories (lines 55-61)
-
-The `break` on line 58 exits the inner `for filename in filenames` loop but not the outer `os.walk` loop. Walking continues into the next directory and keeps appending files past the limit.
-
-**Fix:** Check `limit` in the outer loop as well, or use a `return` / early exit instead of `break`.
-
-### 4. `_has_extension` matches suffixes, not true extensions (lines 34-41)
-
-`filename.endswith("md")` will match `README.md` but also `a-file-named-cmd`. Using `filename.endswith(".md")` (with the dot) or `os.path.splitext` would be more correct.
-
-### 5. `insert_chunks` default argument is evaluated at import time (pgvector.py:131-132)
-
+**Bug — `get_last_user_query` crashes if no user entries exist**
 ```python
-def insert_chunks(chunks, project_id=get_max_project_id() + 1):
+return [x['content'] for x in self.entries if x['role'] == 'user'][-1] or ""
 ```
+The `or ""` fallback never fires — `[-1]` on an empty list raises `IndexError` before it can. The `new_topic` handler calls this before `reset()`, so it's safe in practice, but the method's contract is fragile. Either guard against it or document the precondition.
 
-`get_max_project_id() + 1` runs once when the module is first imported, not on each call. Every call to `insert_chunks` that omits `project_id` reuses the same stale value. This means multiple ingestion runs in the same process will all write to the same project_id.
+**Minor — debug log scaffolding**
+Line 73 — `"augmented entries is a copy: ..."` is a one-time sanity check that should be removed now that it's confirmed.
 
-**Fix:** Use `None` as the default and resolve inside the function body:
+**Minor — `get_entries()` leaks the internal list**
+The return type `Sequence[Entry]` implies read-only, but it returns `self.entries` directly. The warning comment is easy to miss. Low risk for now but worth keeping in mind as the codebase grows.
+
+---
+
+## `handlers.py`
+
+**Style — inconsistent function name casing**
+`_get_llM_response_and_update_convo` — the `llM` mid-word caps is a typo-style quirk. `_get_llm_response_and_update_convo` would be consistent with Python conventions.
+
+**Minor — indented f-string sends leading whitespace to the LLM** (`rag_request`, lines 33–47)
+Every line of the prompt has leading spaces due to the indentation. The LLM handles it fine in practice, but `textwrap.dedent()` would clean it up.
+
+**Possible bug — `ask_about_new_topic` is not in `ROUTES`**
+`router.py` lists `[rag_request, simple_request, new_topic]`. `ask_about_new_topic` is a handler with a docstring written for the router to select, but the router can never choose it. Is this intentional (manually wired later) or an omission?
+
+---
+
+## `router.py`
+
+**Bug — two unused imports**
 ```python
-def insert_chunks(chunks, project_id=None):
-    if project_id is None:
-        project_id = get_max_project_id() + 1
+from pydantic import BaseModel  # never used
+from rich import print           # overrides builtin print, also never called
 ```
+`BaseModel` was likely left over from an earlier iteration. `rich.print` shadowing the builtin is a silent footgun.
 
-### 6. `get_similar` references a non-existent table (pgvector.py:103-114)
+**Minor — `_test_router` doesn't add the query to the conversation**
+The live path adds `query` to `conversation` before calling `router`. The test bypasses that, passing `query` directly to `classify_request` with a conversation that doesn't contain it. The test still runs, but it no longer mirrors real call conditions.
 
-`get_similar` queries `book_chapter` with columns like `book_title` and `chapter_url`, but the schema only defines a `chunk` table. This function will raise a `ProgrammingError` at runtime.
+**Style — missing blank line before `_test_router`** (PEP 8: two blank lines between top-level definitions)
 
 ---
 
-## Design / Maintainability
+## `openai_client.py`
 
-### 7. Module-level globals control behavior (lines 25-28)
-
-`MOCK`, `LIMIT`, `VERBOSE`, and `EXTENSIONS` are module-level globals, but `EXTENSIONS` is never actually passed to `_get_all_filepaths` -- the function uses its own default `["md", "txt"]` (line 46). This means the `EXTENSIONS` tuple on line 28 has no effect.
-
-**Recommendation:** Thread `EXTENSIONS` through as a parameter, or have `_get_all_filepaths` reference the module constant instead of its own default.
-
-### 8. `MOCK` path raises unconditionally (lines 180-181)
-
-The `MOCK` flag exists but its branch just raises `Exception("Not implemented")`. If it's not ready, consider removing the flag entirely to reduce dead code.
-
-### 9. `_chunk_text` uses naive fixed-size splitting (lines 70-77)
-
-Splitting on a character count boundary will cut words and sentences in half, which can degrade embedding quality. This is fine for a v1, but a TODO or note acknowledging this tradeoff would help.
-
-### 10. `test()` runs on every import of `pgvector.py` (pgvector.py:184)
-
+**Bug — mutable default argument**
 ```python
-test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
+def generate_embeddings(text: list[str], metadata: list[dict] = []):
 ```
+Classic Python gotcha — the default list is shared across all calls. Use `metadata: list[dict] | None = None` and set `if metadata is None: metadata = []` inside the body.
 
-This means every `import yara.db.pgvector` hits the database and prints output. This will cause problems in tests, CI, or any context where the DB isn't running.
+**Dead code — `enrich_query` is never called**
+It's a well-written function and probably intended for future use (`rag_request` could use it to improve retrieval quality), but right now it's unreachable.
 
-### 11. Stale/incomplete docstring block (lines 11-24)
-
-The `ALGO` / `FUNCTIONS` comment block at the top appears to be leftover planning notes. Consider removing it or replacing it with a concise module docstring.
-
----
-
-## Minor / Style
-
-| Line | Issue |
-|------|-------|
-| 2 | `import random` is only used by `_mock_vector`, which is itself unused. Dead import. |
-| 3 | `from pprint import pp` is unused. |
-| 37 | Mutable default argument `extensions=['md', 'txt']`. Use a tuple or `None` sentinel. |
-| 46 | Same mutable default issue: `extensions: list[str] = ["md", "txt"]`. |
-| 62 | `"." not in d` to skip hidden dirs also skips valid dirs like `my.project`. Consider checking `d.startswith(".")`. |
-| 67 | Typo: `# NOT IMPELMENTED` -> `# NOT IMPLEMENTED` |
-| 150 | Trailing blank line with whitespace. |
-| 199 | Hardcoded personal path in `__main__` block -- fine for local dev, just be aware it's in version control. |
+**Minor — query appears twice in the routing prompt**
+`classify_request` injects `User's latest message: {query}` into the prompt, and after the recent refactor, `query` is also the last entry in `conversation` (which becomes `augmented`). The LLM sees it twice. Not a correctness issue, but slightly wasteful.
 
 ---
 
-## What's Working Well
+## `ingest.py`
 
-- **Clean separation of concerns:** chunking, embedding, and DB insertion are distinct functions with clear responsibilities.
-- **Generator-based file bundling** (`_bundle_files`) keeps memory usage low for large directories.
-- **Dataclasses for `Chunk` and `FileBundle`** give the pipeline a clear, typed data contract.
-- **The overall pipeline flow** in `ingest_files_to_db` is easy to follow: paths -> bundles -> chunks -> embeddings -> DB.
+**Bug — mutable default arguments**
+Both `_has_extension` (line 37) and `_get_all_filepaths` (line 46) use `["md", "txt"]` as a default. Use tuples: `extensions=("md", "txt")`.
+
+**Bug — `dirnames` filter is too broad** (line 69)
+```python
+dirnames[:] = [d for d in dirnames if "." not in d]
+```
+This skips any directory with a dot anywhere in the name (e.g., `my.project`). Intent is clearly to skip hidden dirs — should be `not d.startswith(".")`.
+
+**Minor — `_get_file_metadata` returns misleading placeholder**
+It returns `{"data": "this feature not yet implemented"}` which gets stored in the DB. Should return `{}` until implemented.
+
+**Minor — `MOCK = False` with dead `if MOCK:` branch**
+`ingest_files_to_db` has `if MOCK: raise Exception("Not implemented")` that can never be reached since `MOCK` is a hardcoded `False`. Remove the branch or leave `MOCK` out entirely until you need it.
+
+**Minor — `_bundle_files` swallows individual tracebacks**
+`raise IOError(errors)` wraps a list of exceptions, losing the individual stack traces. At minimum, `raise errors[0]` would give a usable traceback.
+
+---
+
+## `get_chunks.py`
+
+Nothing significant. One style note: `query_similar_chunks_pretty` builds its string with `+=` in a loop — `"\n".join(...)` or a list comprehension would be more idiomatic, but it's a cosmetic issue at these data sizes.
+
+---
+
+## Summary by priority
+
+| Priority | Issue | File |
+|---|---|---|
+| Bug | `get_last_user_query` IndexError on empty | `conversation.py` |
+| Bug | Mutable default `metadata=[]` | `openai_client.py` |
+| Bug | Mutable defaults `extensions=["md","txt"]` | `ingest.py` |
+| Bug | Dot-dir filter too broad | `ingest.py` |
+| Missing | `ask_about_new_topic` not in `ROUTES` | `router.py` |
+| Cleanup | Unused imports (`BaseModel`, `rich.print`) | `router.py` |
+| Cleanup | Dead `enrich_query` | `openai_client.py` |
+| Cleanup | Dead `MOCK` branch | `ingest.py` |
+| Cleanup | Misleading `_get_file_metadata` return | `ingest.py` |
+| Style | `_get_llM_response` casing | `handlers.py` |

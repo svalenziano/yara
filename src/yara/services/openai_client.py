@@ -63,8 +63,6 @@ def classify_request(
         - query the LLM Structured Output
         - return the result to the user
     """
-    if not possible_options:
-        raise TypeError("possible_options must be provided")
 
     options_for_llm = [
         {
@@ -89,7 +87,8 @@ def classify_request(
 
     routing_prompt = dedent(f"""
     Based on the conversation and the user's latest message,
-    please select the most appropriate route.
+    please select the most appropriate route.  More than one route may 
+    fit the request.  Pick the route that fits best.
 
     User's latest message: {query}
 

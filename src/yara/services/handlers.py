@@ -27,7 +27,7 @@ def rag_request(conversation: Conversation) -> str:
     """
     query = conversation.get_last_user_query()
     found = query_similar_chunks_pretty(query)
-    logger.debug("retrieved chunks: %s", found)
+    # logger.debug("retrieved chunks: %s", found)
 
     conversation.replace_last_entry(
         "user",
@@ -65,9 +65,10 @@ def ask_about_new_topic(conversation: Conversation) -> str:
     the previous line of questioning.  Ask the user if they want to start
     a new conversation.
     """
+
     response = (
         "It sounds like you'd like to start a conversation"
-        " about a new topic, is this correct?"
+        " about a new topic, is this correct? y/n"
     )
 
     conversation.add_entry("assistant", response)
