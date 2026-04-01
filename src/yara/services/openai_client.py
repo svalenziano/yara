@@ -52,16 +52,8 @@ def classify_request(
     verbose=False,
 ) -> Callable:
     """
-    Make a routing decision
-
-    Input = query
-    Output = query path aka routing decision.  Must one one of `possible_options`
-
-    Algo:
-        - format possible_options in the format that OpenAI wants
-            - use the function __name__ and __doc__ to pass relevant info to OpenAI
-        - query the LLM Structured Output
-        - return the result to the user
+    Make a routing decision based on function docstrings, 
+    and return the function for invocation by the caller
     """
 
     options_for_llm = [
@@ -89,6 +81,8 @@ def classify_request(
     Based on the conversation and the user's latest message,
     please select the most appropriate route.  More than one route may 
     fit the request.  Pick the route that fits best.
+                            
+    If you are unsure, defer to rag_request (request new documents).
 
     User's latest message: {query}
 
@@ -101,7 +95,7 @@ def classify_request(
         console.log(augmented)
 
     response = client.responses.parse(
-        model=MODELS["fast"],
+        model=MODELS["normal"],
         input=augmented,  # type: ignore[arg-type]
         text_format=RoutingDecision,
         temperature=0,

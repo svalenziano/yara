@@ -16,8 +16,8 @@ from yara.services.openai_client import classify_request
 ROUTES = [
     handlers.rag_request,
     handlers.simple_request,
-    handlers.ask_about_new_topic,
-    handlers.new_topic,
+    # handlers.ask_about_new_topic,
+    # handlers.new_topic,
 ]
 
 logger = logging.getLogger(__name__)
