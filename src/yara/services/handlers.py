@@ -1,11 +1,12 @@
-import logging
 from textwrap import dedent
+
+from opentelemetry import trace
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks_pretty
 from yara.services.openai_client import simple_llm_call, enrich_query
 
-logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 def _get_llm_response_and_update_convo(conversation: Conversation) -> str:
@@ -14,7 +15,6 @@ def _get_llm_response_and_update_convo(conversation: Conversation) -> str:
     update the convo, and return the response text.
     """
     response_text = simple_llm_call(conversation)
-    logger.info("llm response: %s", response_text)
     conversation.add_entry("assistant", response_text)
     return response_text
 
@@ -25,34 +25,32 @@ def rag_request(conversation: Conversation) -> str:
     for relevant documents. Use this route when the user asks about facts,
     topics, or details that should come from their stored documents.
     """
-    query = conversation.get_last_user_query()
-    logger.info("Enriching query: %s", query)
-    enriched = (enrich_query(conversation))
-    logger.info("Enriched: %s", enriched)
+    with tracer.start_as_current_span("rag_request"):
+        query = conversation.get_last_user_query()
+        enriched = enrich_query(conversation)
 
-    found = query_similar_chunks_pretty(enriched)
-    # logger.debug("retrieved chunks: %s", found)
+        found = query_similar_chunks_pretty(enriched)
 
-    conversation.replace_last_entry(
-        "user",
-        dedent(f"""Please use these documents to answer my question.
-            Please do NOT rely on your training knowledge to answer my question.
-            If the question is not answerable based on these documents,
-            please let me know.
+        conversation.replace_last_entry(
+            "user",
+            dedent(f"""Please use these documents to answer my question.
+                Please do NOT rely on your training knowledge to answer my question.
+                If the question is not answerable based on these documents,
+                please let me know.
 
-            Here are the documents:
-            <documents>
-            {found}
-            </documents>
+                Here are the documents:
+                <documents>
+                {found}
+                </documents>
 
-            Here is my question:
-            <question>
-            {query}
-            </question>
-            """),
-    )
+                Here is my question:
+                <question>
+                {query}
+                </question>
+                """),
+        )
 
-    return _get_llm_response_and_update_convo(conversation)
+        return _get_llm_response_and_update_convo(conversation)
 
 
 def simple_request(conversation: Conversation) -> str:

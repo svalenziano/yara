@@ -1,9 +1,6 @@
-import logging
-from textwrap import dedent
 from collections.abc import Sequence
+from textwrap import dedent
 from typing import Literal, TypedDict
-
-logger = logging.getLogger(__name__)
 
 Role = Literal["developer", "assistant", "user"]
 
@@ -49,13 +46,13 @@ class Conversation:
         self.add_entry("assistant", greeting)
 
     def get_last_user_query(self) -> str:
-        return [x.get('content') for x in self.entries if x['role'] == 'user'][-1] or ""
+        return [x.get("content") for x in self.entries if x["role"] == "user"][-1] or ""
 
     def replace_last_entry(self, role: Role, content: str):
         last_entry = self.entries[-1]
-        if last_entry['role'] != role:
+        if last_entry["role"] != role:
             raise ValueError(f"Role mismatch: old={last_entry['role']} & new={role}")
-        self.entries[-1] = {'role': role, 'content': content}
+        self.entries[-1] = {"role": role, "content": content}
 
     def get_entries(self) -> Sequence[Entry]:
         """
@@ -72,7 +69,6 @@ class Conversation:
         result = [*self.get_entries()] + [
             {"role": "developer", "content": developer_prompt}
         ]
-        logger.debug("augmented entries: %s", result)
         return result
 
 

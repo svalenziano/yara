@@ -1,5 +1,4 @@
-import logging
-
+from opentelemetry import trace
 from prompt_toolkit import prompt
 from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.formatted_text import HTML
@@ -12,7 +11,7 @@ from yara.services.conversation import Conversation
 from yara.services.router import router
 
 console = Console()
-logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 def get_user_input(history):
@@ -50,14 +49,14 @@ def chat_loop():
         if not query.strip():
             continue
 
-        logger.info(f"""\n{"/" * 30}\n""")
-        logger.info("user: %s", query)
+        with tracer.start_as_current_span("query", attributes={
+            "input.value": query,
+        }) as span:
+            conversation.add_entry("user", query)
+            handler = router(conversation)
+            llm_response = handler(conversation)
+            span.set_attribute("output.value", llm_response)
 
-        conversation.add_entry("user", query)
-        handler = router(conversation)
-        llm_response = handler(conversation)
-
-        logger.info("assistant: %s", llm_response)
         render_assistant(llm_response)
 
 

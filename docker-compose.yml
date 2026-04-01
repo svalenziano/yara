@@ -8,5 +8,13 @@ services:
       - "8888:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"   # Web UI + OTLP HTTP collector
+      - "4317:4317"   # OTLP gRPC collector
+    volumes:
+      - phoenix_data:/mnt/data
 volumes:
   pgdata:
+  phoenix_data:

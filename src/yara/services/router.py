@@ -2,11 +2,9 @@
 LLM-powered routing and classification
 """
 
-import logging
 from typing import Callable
 
-from pydantic import BaseModel
-from rich import print
+from opentelemetry import trace
 from rich.console import Console
 
 import yara.services.handlers as handlers
@@ -20,23 +18,21 @@ ROUTES = [
     # handlers.new_topic,
 ]
 
-logger = logging.getLogger(__name__)
-console = Console()
+tracer = trace.get_tracer(__name__)
 
 
 def router(conversation: Conversation) -> Callable:
     if len(conversation) <= 3:  # Conversation has just begun
-        logger.info("routing to rag_request (conversation start)")
         return handlers.rag_request
 
     query = conversation.get_last_user_query()
-    logger.info("🗺️ Asking LLM to classify query='%s' and conversation (not shown here)", query)
-    chosen = classify_request(query, conversation, ROUTES)
-    logger.info("🗺️ routing to %s", chosen.__name__)
+    with tracer.start_as_current_span("classify"):
+        chosen = classify_request(query, conversation, ROUTES)
     return chosen
 
 
 def _test_router():
+    console = Console()
     for query in [
         "I'm looking for an electrician",
         "What documents do I have that explain Arduino?",
