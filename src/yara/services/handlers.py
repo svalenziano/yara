@@ -1,10 +1,11 @@
+from collections.abc import Generator
 from textwrap import dedent
 
 from opentelemetry import trace
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks
-from yara.services.openai_client import enrich_query, simple_llm_call
+from yara.services.openai_client import enrich_query, simple_llm_call, streamed_llm_call
 
 tracer = trace.get_tracer(__name__)
 
@@ -19,7 +20,17 @@ def _get_llm_response_and_update_convo(conversation: Conversation) -> str:
     return response_text
 
 
-def rag_request(conversation: Conversation) -> str:
+def _get_streamed_response_and_update_convo(
+    conversation: Conversation,
+) -> Generator[str, None, None]:
+    full_text = ""
+    for chunk in streamed_llm_call(conversation):
+        full_text += chunk
+        yield chunk
+    conversation.add_entry("assistant", full_text)
+
+
+def rag_request(conversation: Conversation) -> Generator[str, None, None]:
     """
     The user is asking a question that requires searching the knowledge base
     for relevant documents. Use this route when the user asks about facts,
@@ -50,13 +61,15 @@ def rag_request(conversation: Conversation) -> str:
                 """),
         )
 
-        return _get_llm_response_and_update_convo(conversation)
+        yield from _get_streamed_response_and_update_convo(conversation)
 
 
 def simple_request(conversation: Conversation) -> str:
     """
     The user's request can be answered without retrieving more docs.
     Respond to the user with the context you currently have.
+
+    TODO - handle responses as streams like _get_streamed_response_and_update_convo
     """
     return _get_llm_response_and_update_convo(conversation)
 
@@ -82,6 +95,8 @@ def new_topic(conversation: Conversation) -> str:
     """
     The user has asked to start a conversation about a new topic.
     The conversation will be compressed to make room for the new convo.
+
+    TODO - handle responses as streams like _get_streamed_response_and_update_convo
     """
     query = conversation.get_last_user_query()
     summary = (

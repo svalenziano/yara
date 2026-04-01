@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from enum import Enum
 from textwrap import dedent
 from typing import Callable
@@ -141,14 +142,30 @@ def enrich_query(conversation: Conversation) -> str:
     return response.output_text
 
 
-def simple_llm_call(conversation: Conversation) -> str:
+def simple_llm_call(conversation: Conversation, model=MODELS["normal"]) -> str:
     response = client.responses.create(
-        model=MODELS["normal"],
+        model=model,
         input=conversation.get_entries(),  # type: ignore
         temperature=0,
     )
 
     return response.output_text
+
+def streamed_llm_call(
+    conversation: Conversation, model=MODELS["normal"]
+) -> Generator[str, None, None]:
+    """
+    Same as 'simple_llm_call' except the response is a stream of text deltas
+    """
+    stream = client.responses.create(
+        model=model,
+        input=conversation.get_entries(),  # type: ignore
+        temperature=0,
+        stream=True,
+    )
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            yield event.delta
 
 
 def generate_embeddings(text: list[str], metadata: list[dict] = []):

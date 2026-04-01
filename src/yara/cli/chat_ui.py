@@ -4,6 +4,7 @@ from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
+from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 
@@ -12,6 +13,10 @@ from yara.services.router import not_a_router
 
 console = Console()
 tracer = trace.get_tracer(__name__)
+
+
+def assistant_panel(text: str) -> Panel:
+    return Panel(Markdown(text), title="Assistant", border_style="bright_black")
 
 
 def get_user_input(history):
@@ -24,8 +29,23 @@ def get_user_input(history):
 
 def render_assistant(text):
     console.print()
-    console.print(Panel(Markdown(text), title="Assistant", border_style="bright_black"))
+    console.print(assistant_panel(text))  # will not render if you place inside f-string
     console.print()
+
+
+def stream_assistant(chunks):
+    full_text = ""
+    console.print()
+    with Live(
+        assistant_panel("..."),
+        console=console,
+        refresh_per_second=12,
+    ) as live:
+        for chunk in chunks:
+            full_text += chunk
+            live.update(assistant_panel(full_text))
+    console.print()
+    return full_text
 
 
 def chat_loop():
@@ -49,15 +69,17 @@ def chat_loop():
         if not query.strip():
             continue
 
-        with tracer.start_as_current_span("query", attributes={
-            "input.value": query,
-        }) as span:
+        with tracer.start_as_current_span(
+            "query",
+            attributes={
+                "input.value": query,
+            },
+        ) as span:
             conversation.add_entry("user", query)
             handler = not_a_router(conversation)
-            llm_response = handler(conversation)
+            llm_response_stream = handler(conversation)
+            llm_response = stream_assistant(llm_response_stream)
             span.set_attribute("output.value", llm_response)
-
-        render_assistant(llm_response)
 
 
 if __name__ == "__main__":
