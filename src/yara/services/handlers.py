@@ -3,7 +3,7 @@ from textwrap import dedent
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks_pretty
-from yara.services.openai_client import simple_llm_call
+from yara.services.openai_client import simple_llm_call, enrich_query
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,11 @@ def rag_request(conversation: Conversation) -> str:
     topics, or details that should come from their stored documents.
     """
     query = conversation.get_last_user_query()
-    found = query_similar_chunks_pretty(query)
+    logger.info("Enriching query: %s", query)
+    enriched = (enrich_query(conversation))
+    logger.info("Enriched: %s", enriched)
+
+    found = query_similar_chunks_pretty(enriched)
     # logger.debug("retrieved chunks: %s", found)
 
     conversation.replace_last_entry(

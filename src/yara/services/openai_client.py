@@ -121,6 +121,14 @@ def enrich_query(conversation: Conversation) -> str:
         result from a vector database.  Can you provide such a query?
 
         Return only the query.  Do not include any additional text.
+
+        For example:
+            <long conversation omitted, 
+               including recent questions about animal habitats/>
+            User: What about Eels?
+               
+        By examining the conversation, we can see that the user wants 
+        to do a vector DB search for "Eel habitats"
     """)
     )
 
