@@ -50,8 +50,10 @@ def chat_loop():
         if not query.strip():
             continue
 
+        logger.info(f"""\n{"/" * 30}\n""")
         logger.info("user: %s", query)
-        conversation.add_entry('user', query)
+
+        conversation.add_entry("user", query)
         handler = router(conversation)
         llm_response = handler(conversation)
 

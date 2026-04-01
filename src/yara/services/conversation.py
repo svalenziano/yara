@@ -46,7 +46,7 @@ class Conversation:
         self.add_entry("assistant", greeting)
 
     def get_last_user_query(self) -> str:
-        return [x['content'] for x in self.entries if x['role'] == 'user'][-1] or ""
+        return [x.get('content') for x in self.entries if x['role'] == 'user'][-1] or ""
 
     def replace_last_entry(self, role: Role, content: str):
         last_entry = self.entries[-1]
@@ -58,7 +58,7 @@ class Conversation:
         """
         Warning: do not mutate the object returned by this method!
         """
-        return self.entries
+        return self.entries.copy()
 
     def get_augmented_entries(self, developer_prompt: str):
         """
@@ -70,7 +70,6 @@ class Conversation:
             {"role": "developer", "content": developer_prompt}
         ]
         logger.debug("augmented entries: %s", result)
-        logger.debug("augmented entries is a copy: %s", self.get_entries() is not result)
         return result
 
 

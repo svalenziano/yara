@@ -1,4 +1,5 @@
 import logging
+from textwrap import dedent
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
 from yara.services.get_chunks import query_similar_chunks_pretty
@@ -7,7 +8,7 @@ from yara.services.openai_client import simple_llm_call
 logger = logging.getLogger(__name__)
 
 
-def _get_llM_response_and_update_convo(conversation: Conversation) -> str:
+def _get_llm_response_and_update_convo(conversation: Conversation) -> str:
     """
     Utility function: get a simple response from the LLM,
     update the convo, and return the response text.
@@ -30,7 +31,7 @@ def rag_request(conversation: Conversation) -> str:
 
     conversation.replace_last_entry(
         "user",
-        f"""Please use these documents to answer my question.
+        dedent(f"""Please use these documents to answer my question.
             Please do NOT rely on your training knowledge to answer my question.
             If the question is not answerable based on these documents,
             please let me know.
@@ -44,10 +45,10 @@ def rag_request(conversation: Conversation) -> str:
             <question>
             {query}
             </question>
-            """,
+            """),
     )
 
-    return _get_llM_response_and_update_convo(conversation)
+    return _get_llm_response_and_update_convo(conversation)
 
 
 def simple_request(conversation: Conversation) -> str:
@@ -55,7 +56,7 @@ def simple_request(conversation: Conversation) -> str:
     The user's request can be answered without retrieving more docs.
     Respond to the user with the context you currently have.
     """
-    return _get_llM_response_and_update_convo(conversation)
+    return _get_llm_response_and_update_convo(conversation)
 
 
 def ask_about_new_topic(conversation: Conversation) -> str:
@@ -91,4 +92,4 @@ def new_topic(conversation: Conversation) -> str:
     )
     conversation.add_entry("user", query)
 
-    return _get_llM_response_and_update_convo(conversation)
+    return _get_llm_response_and_update_convo(conversation)
