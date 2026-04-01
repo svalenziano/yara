@@ -8,7 +8,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from yara.services.conversation import Conversation
-from yara.services.router import router
+from yara.services.router import not_a_router
 
 console = Console()
 tracer = trace.get_tracer(__name__)
@@ -53,7 +53,7 @@ def chat_loop():
             "input.value": query,
         }) as span:
             conversation.add_entry("user", query)
-            handler = router(conversation)
+            handler = not_a_router(conversation)
             llm_response = handler(conversation)
             span.set_attribute("output.value", llm_response)
 

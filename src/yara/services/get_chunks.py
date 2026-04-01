@@ -6,38 +6,39 @@ from opentelemetry import trace
 
 from yara.db.pgvector import get_similar_chunks
 from yara.services.openai_client import generate_single_embedding
+from yara.types import SimilarChunk
 
 tracer = trace.get_tracer(__name__)
 
 
-def query_similar_chunks(query_text: str, top_k=10):
+def query_similar_chunks(query_text: str, top_k=10) -> str:
     """
-
-    Algo:
-    - Embed the query
-    - Query the DB for similar chunks
-    - Return chunks
+    Accepts a text query for the vectorDB and returns a big
+    string that includes the matching chunks
     """
-    with tracer.start_as_current_span("retriever", attributes={
-        "openinference.span.kind": "RETRIEVER",
-        "input.value": query_text,
-    }) as span:
+    with tracer.start_as_current_span(
+        "retriever",
+        attributes={
+            "openinference.span.kind": "RETRIEVER",
+            "input.value": query_text,
+        },
+    ) as span:
         query_vector = generate_single_embedding(query_text)
         results = get_similar_chunks(query_vector, top_k=top_k)
         span.set_attribute("retrieval.documents", len(results))
-        return results
+        return format_chunks(results)
 
 
-def query_similar_chunks_pretty(query_text: str) -> str:
-    result = ""
+def format_chunks(chunks: list[SimilarChunk]) -> str:
 
-    for r in query_similar_chunks(query_text):
-        result += "\n" + "-" * 10
-        result += "\n" + r["filename"]
-        result += "\n" + "-" * 10
-        result += "\n" + r["chunk_text"]
+    result = "<chunks>"
 
-    return result
+    for chunk in chunks:
+        result += f"\n\n<chunk filename={chunk['filename']}>"
+        result += "\n" + chunk["chunk_text"]
+        result += f"\n</chunk filename={chunk['filename']}>"
+
+    return result + "\n</chunks>\n\n"
 
 
 if __name__ == "__main__":

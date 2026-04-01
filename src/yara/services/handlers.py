@@ -3,8 +3,8 @@ from textwrap import dedent
 from opentelemetry import trace
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
-from yara.services.get_chunks import query_similar_chunks_pretty
-from yara.services.openai_client import simple_llm_call, enrich_query
+from yara.services.get_chunks import query_similar_chunks
+from yara.services.openai_client import enrich_query, simple_llm_call
 
 tracer = trace.get_tracer(__name__)
 
@@ -29,7 +29,7 @@ def rag_request(conversation: Conversation) -> str:
         query = conversation.get_last_user_query()
         enriched = enrich_query(conversation)
 
-        found = query_similar_chunks_pretty(enriched)
+        found = query_similar_chunks(enriched)
 
         conversation.replace_last_entry(
             "user",

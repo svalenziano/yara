@@ -20,6 +20,11 @@ ROUTES = [
 
 tracer = trace.get_tracer(__name__)
 
+def not_a_router(conversation: Conversation) -> Callable:
+    """
+    A placeholder router, for when you want to disable routing
+    """
+    return handlers.rag_request
 
 def router(conversation: Conversation) -> Callable:
     if len(conversation) <= 3:  # Conversation has just begun
