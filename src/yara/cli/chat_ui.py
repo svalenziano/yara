@@ -15,8 +15,10 @@ from yara.services.router import not_a_router
 console = Console()
 tracer = trace.get_tracer(__name__)
 
+
 def sources_panel(text: str) -> Panel:
     return Panel(Markdown(text), title="Sources", border_style="grey30")
+
 
 def assistant_panel(text: str) -> Panel:
     return Panel(Markdown(text), title="Assistant", border_style="bright_black")
@@ -84,9 +86,13 @@ def chat_loop():
         ) as span:
             conversation.add_entry("user", query)
 
-            # do RAG at every loop, for now.  Todo: add real routing
+            # do RAG at every loop, for now.
+            # Todo: add real routing
             handler = not_a_router(conversation)
             llm_response_stream = handler(conversation)
+
+            # if conversation.sources:
+            #     print the sources
 
             # render response and provide full response for logging
             llm_response = stream_assistant(llm_response_stream)
