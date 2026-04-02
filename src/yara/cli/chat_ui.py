@@ -12,6 +12,8 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.spinner import Spinner
 
+from yara.cli.commands import CommandContext, SlashCommandLexer, SLASH_COMMAND_STYLE, dispatch
+
 from yara.services.conversation import Conversation
 from yara.services.router import not_a_router
 from yara.types import SimilarChunk
@@ -62,6 +64,8 @@ def get_user_input(history):
         HTML("<ansiblue>❯ </ansiblue>"),
         history=history,
         cursor=CursorShape.BLINKING_BLOCK,
+        lexer=SlashCommandLexer(),
+        style=SLASH_COMMAND_STYLE,
     )
 
 
@@ -92,6 +96,7 @@ def chat_loop():
 
     with using_session(session_id):
         conversation = Conversation()
+        ctx = CommandContext(conversation=conversation, console=console)
 
         render_assistant(conversation.first_assistant_prompt())
 
@@ -102,11 +107,13 @@ def chat_loop():
                 render_assistant("Goodbye!")
                 break
 
-            if query.strip().lower().strip("/") == "exit":
-                render_assistant("Goodbye!")
-                break
-
             if not query.strip():
+                continue
+
+            if dispatch(query, ctx):
+                if ctx.signal.get("exit"):
+                    render_assistant("Goodbye!")
+                    break
                 continue
 
             with tracer.start_as_current_span(
