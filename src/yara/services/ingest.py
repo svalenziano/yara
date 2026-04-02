@@ -8,7 +8,13 @@ from collections.abc import Iterable
 from math import ceil
 
 from yara.config import env
-from yara.db.pgvector import get_chunk_count, get_max_project_id, insert_chunks
+from yara.db.pgvector import (
+    delete_chunks_for_file,
+    get_chunk_count,
+    get_ingested_files,
+    get_max_project_id,
+    insert_chunks,
+)
 from yara.services.openai_client import generate_embeddings
 from yara.types import Chunk, FileBundle
 
@@ -161,6 +167,54 @@ def _files_to_chunks(files: Iterable[FileBundle]) -> list[Chunk]:
     return chunks
 
 
+def purge_stale_files(
+    directory_path: str, purge_modified: bool = True, verbose=VERBOSE
+) -> int:
+    """
+    Deletes chunks from the DB for files that no longer exist on disk,
+    or whose filesize has changed (when purge_modified=True).
+    Returns count of purged files.
+    """
+    ingested = get_ingested_files(directory_path)
+    to_purge = []
+    for dir_path, filename, filesize in ingested:
+        full_path = os.path.join(dir_path, filename)
+        if not os.path.isfile(full_path):
+            to_purge.append((dir_path, filename, "stale"))
+        elif purge_modified and os.path.getsize(full_path) != filesize:
+            to_purge.append((dir_path, filename, "modified"))
+
+    for dir_path, filename, reason in to_purge:
+        delete_chunks_for_file(dir_path, filename)
+
+    if verbose and to_purge:
+        stale = sum(1 for *_, r in to_purge if r == "stale")
+        modified = sum(1 for *_, r in to_purge if r == "modified")
+        print(f"  Purged {len(to_purge)} file(s): {stale} stale, {modified} modified.")
+    return len(to_purge)
+
+
+def _filter_already_ingested(
+    paths: list[str], ingested: set[tuple[str, str, int]], verbose=VERBOSE
+) -> list[str]:
+    """
+    Returns only paths not already present in the DB with the same filesize.
+    """
+    filtered = []
+    skipped = 0
+    for path in paths:
+        dir_path = os.path.dirname(path)
+        filename = os.path.basename(path)
+        filesize = os.path.getsize(path)
+        if (dir_path, filename, filesize) in ingested:
+            skipped += 1
+        else:
+            filtered.append(path)
+    if verbose and skipped:
+        print(f"  Skipped {skipped} already-ingested file(s).")
+    return filtered
+
+
 def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> None:
     """
     **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
@@ -186,6 +240,10 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
         print("\n⌛ Ingesting files...")
 
     paths = _get_all_filepaths(directory_path)
+    purge_stale_files(directory_path, purge_modified=True, verbose=verbose)
+    ingested = get_ingested_files(directory_path)
+    paths = _filter_already_ingested(paths, ingested, verbose=verbose)
+
     batches = ceil(len(paths) / batch_size)
 
     if verbose:

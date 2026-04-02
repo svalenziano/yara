@@ -140,6 +140,31 @@ def _nuke_chunks():
     print(f"📦 Deleted all {delete_count} from the table.")
 
 
+def get_ingested_files(dir_path: str) -> set[tuple[str, str, int]]:
+    """
+    Returns set of (dir_path, filename, filesize) for all chunks whose
+    dir_path starts with the given directory.
+    """
+    query = """
+        SELECT DISTINCT dir_path, filename, filesize
+        FROM chunk
+        WHERE dir_path LIKE %s || '%%';
+    """
+    rows = get_dict(query, (dir_path,))
+    return {(r["dir_path"], r["filename"], r["filesize"]) for r in rows}
+
+
+def delete_chunks_for_file(dir_path: str, filename: str) -> int:
+    """
+    Deletes all chunks for the given file. Returns count of deleted rows.
+    """
+    query = "DELETE FROM chunk WHERE dir_path = %s AND filename = %s;"
+    with _database_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(query, (dir_path, filename))
+            return cursor.rowcount
+
+
 def insert_chunks(chunks: list[Chunk], project_id: int | None = None) -> int:
     """
     Returns: number of successful insertions

@@ -69,9 +69,24 @@ Note: `get_ingested_files()` is called **after** the purge so the set reflects c
 - **Deleted subdirectory**: all nested files purged (they won't pass `os.path.isfile`)
 - **project_id fragmentation**: re-ingested files get a new project_id — accepted for now
 
+## Logging
+
+We should add some logging to ensure that ingestion is working as expected.
+
+Stuff to log:
+- All database write operations
+- Filenames of purged chunks
+- Filenames of updated chunks
+- Quantities of untouched, purged, updated files / chunks
+
+Can we use our existing Arize Phoenix observability, or should we do that somewhere else, perhaps with built-in `logging` module?
+
+
 ## Verification
 
 1. Ingest a directory — all files processed
 2. Re-run — all files skipped, nothing purged
 3. Delete a file from disk, re-run — stale chunks purged, rest skipped
 4. Modify a file (change size), re-run — old chunks purged, file re-ingested with fresh embeddings
+
+
