@@ -43,6 +43,7 @@ def rag_request(conversation: Conversation) -> Generator[str, None, None]:
 
         found: list[SimilarChunk] = query_similar_chunks(enriched)
         formatted_chunks: str = format_chunks(found)
+        conversation.add_sources(found)
 
         conversation.replace_last_entry(
             "user",

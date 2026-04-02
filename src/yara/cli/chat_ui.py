@@ -17,9 +17,25 @@ console = Console()
 tracer = trace.get_tracer(__name__)
 
 
-def sources_panel(text: list[SimilarChunk]) -> Panel:
-    # TODO - SEE IMPELMENTATION PLAN
-    return Panel(Markdown(text), title="Sources", border_style="grey30")
+def sources_panel(sources: list[SimilarChunk]) -> Panel:
+    """
+    Deduplicate by dir_path+filename, sort alphabetically,
+    render with styled paths.
+    """
+    deduplicated: list[str] = []
+
+    for idx, source in enumerate(sources):
+        fullpath = f"{idx}) '{source['filename']}'"
+        # fullpath = f"{idx}) {source['dir_path']}/{source['filename']}"
+        if fullpath not in deduplicated:
+            deduplicated.append(fullpath)
+    deduplicated.sort()
+    return Panel(
+        Markdown("\n".join(deduplicated)),
+        title="Sources",
+        border_style="grey50",
+        style="grey50",
+    )
 
 
 def assistant_panel(text: str) -> Panel:
@@ -93,11 +109,14 @@ def chat_loop():
             handler = not_a_router(conversation)
             llm_response_stream = handler(conversation)
 
-            # if conversation.sources:
-            #     print the sources
-
             # render response and provide full response for logging
             llm_response = stream_assistant(llm_response_stream)
+
+            sources = conversation.read_sources()
+            if sources:
+                console.print(sources_panel(sources))
+                console.print()
+                conversation.clear_sources()
             span.set_attribute("output.value", llm_response)
 
 
