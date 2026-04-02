@@ -4,8 +4,9 @@ from textwrap import dedent
 from opentelemetry import trace
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
-from yara.services.get_chunks import query_similar_chunks
+from yara.services.get_chunks import query_similar_chunks, format_chunks
 from yara.services.openai_client import enrich_query, simple_llm_call, streamed_llm_call
+from yara.types import SimilarChunk
 
 tracer = trace.get_tracer(__name__)
 
@@ -40,7 +41,8 @@ def rag_request(conversation: Conversation) -> Generator[str, None, None]:
         query = conversation.get_last_user_query()
         enriched = enrich_query(conversation)
 
-        found = query_similar_chunks(enriched)
+        found: list[SimilarChunk] = query_similar_chunks(enriched)
+        formatted_chunks: str = format_chunks(found)
 
         conversation.replace_last_entry(
             "user",
@@ -51,7 +53,7 @@ def rag_request(conversation: Conversation) -> Generator[str, None, None]:
 
                 Here are the documents:
                 <documents>
-                {found}
+                {formatted_chunks}
                 </documents>
 
                 Here is my question:

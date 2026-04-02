@@ -11,7 +11,7 @@ from yara.types import SimilarChunk
 tracer = trace.get_tracer(__name__)
 
 
-def query_similar_chunks(query_text: str, top_k=10) -> str:
+def query_similar_chunks(query_text: str, top_k=10) -> list[SimilarChunk]:
     """
     Accepts a text query for the vectorDB and returns a big
     string that includes the matching chunks
@@ -27,11 +27,10 @@ def query_similar_chunks(query_text: str, top_k=10) -> str:
         results = get_similar_chunks(query_vector, top_k=top_k)
 
         span.set_attribute("retrieval.documents", len(results))
+        return results
 
-        return _format_chunks(results)
 
-
-def _format_chunks(chunks: list[SimilarChunk]) -> str:
+def format_chunks(chunks: list[SimilarChunk]) -> str:
 
     result = "<chunks>"
 

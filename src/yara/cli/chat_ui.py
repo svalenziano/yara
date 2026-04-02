@@ -11,12 +11,14 @@ from rich.spinner import Spinner
 
 from yara.services.conversation import Conversation
 from yara.services.router import not_a_router
+from yara.types import SimilarChunk
 
 console = Console()
 tracer = trace.get_tracer(__name__)
 
 
-def sources_panel(text: str) -> Panel:
+def sources_panel(text: list[SimilarChunk]) -> Panel:
+    # TODO - SEE IMPELMENTATION PLAN
     return Panel(Markdown(text), title="Sources", border_style="grey30")
 
 
