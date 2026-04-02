@@ -19,19 +19,28 @@ from yara.types import SimilarChunk
 console = Console()
 tracer = trace.get_tracer(__name__)
 
+
+def numbered_markdown_list(texts: list[str]) -> str:
+    """
+    Given ['lorem', 'ipsum'] returns:
+        1) lorem
+        2) ipsum
+    """
+    return "\n".join(f"{i + 1}) {text}" for i, text in enumerate(texts))
+
+
 def sources_panel(sources: list[SimilarChunk]) -> Panel:
     """
-    Deduplicate by dir_path+filename, sort alphabetically,
-    render with styled paths.
+    List of sources
+    Do not sort (keep original relevance sorting from vector DB)
     """
     deduplicated: list[str] = []
 
-    for idx, source in enumerate(sources):
-        fullpath = f"{idx}) '{source['filename']}'"
+    for source in sources:
+        path = f"'{source['filename']}'"
         # fullpath = f"{idx}) {source['dir_path']}/{source['filename']}"
-        if fullpath not in deduplicated:
-            deduplicated.append(fullpath)
-    deduplicated.sort()
+        if path not in deduplicated:
+            deduplicated.append(path)
     return Panel(
         Markdown("\n".join(deduplicated)),
         title="Sources",
