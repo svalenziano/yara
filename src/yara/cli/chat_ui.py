@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.spinner import Spinner
 
 from yara.services.conversation import Conversation
 from yara.services.router import not_a_router
@@ -14,9 +15,15 @@ from yara.services.router import not_a_router
 console = Console()
 tracer = trace.get_tracer(__name__)
 
+def sources_panel(text: str) -> Panel:
+    return Panel(Markdown(text), title="Sources", border_style="grey30")
 
 def assistant_panel(text: str) -> Panel:
     return Panel(Markdown(text), title="Assistant", border_style="bright_black")
+
+
+def loading_panel() -> Panel:
+    return Panel(Spinner("dots"), title="Assistant", border_style="bright_black")
 
 
 def get_user_input(history):
@@ -29,7 +36,7 @@ def get_user_input(history):
 
 def render_assistant(text):
     console.print()
-    console.print(assistant_panel(text))  # will not render if you place inside f-string
+    console.print(assistant_panel(text))
     console.print()
 
 
@@ -37,7 +44,7 @@ def stream_assistant(chunks):
     full_text = ""
     console.print()
     with Live(
-        assistant_panel("..."),
+        loading_panel(),
         console=console,
         refresh_per_second=12,
     ) as live:
