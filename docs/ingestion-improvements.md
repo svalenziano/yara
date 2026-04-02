@@ -14,26 +14,28 @@ Use the existing `dir_path`, `filename`, and `filesize` columns in the `chunk` t
 
 ### Step 0: Add DB functions in `pgvector.py`
 
-**`get_ingested_files()`** — returns set of `(dir_path, filename, filesize)` tuples for all chunks in the DB. Used by both skip and purge logic.
+**`get_ingested_files(dir_path)`** — returns set of `(dir_path, filename, filesize)` tuples for chunks whose `dir_path` starts with the given directory. Scoped query avoids scanning unrelated data.
 
 ```sql
-SELECT DISTINCT dir_path, filename, filesize FROM chunk;
+SELECT DISTINCT dir_path, filename, filesize FROM chunk WHERE dir_path LIKE %s || '%%';
 ```
 
-**`delete_chunks_for_file(dir_path, filename)`** — deletes all chunks matching a specific file. Returns count of deleted rows.
+**`delete_chunks_for_file(dir_path, filename)`** — deletes all chunks matching a specific file. Uses `cursor.rowcount` for the count (no `RETURNING` needed).
 
 ```sql
-DELETE FROM chunk WHERE dir_path = %s AND filename = %s RETURNING id;
+DELETE FROM chunk WHERE dir_path = %s AND filename = %s;
 ```
 
 ### Step 1: Purge stale files — `purge_stale_files()` in `ingest.py`
 
-Standalone function, callable and testable independently.
+Standalone function, callable and testable independently. Accepts `purge_modified: bool` and `verbose: bool` parameters.
 
-- Get `ingested_files` set from DB (via `get_ingested_files()`)
-- Filter to files whose `dir_path` starts with the ingestion directory
+- Call `get_ingested_files(directory_path)` internally to get current DB state
 - For each, check if the file still exists on disk (`os.path.isfile`)
-- If not, call `delete_chunks_for_file()` to remove its chunks
+  - If not on disk → purge (stale)
+  - If on disk but filesize differs and `purge_modified=True` → purge (will be re-ingested)
+  - If on disk with same filesize → leave alone
+- Call `delete_chunks_for_file()` for each file to purge
 - Print summary when verbose
 
 ### Step 2: Filter unchanged files — `_filter_already_ingested()` in `ingest.py`
@@ -46,11 +48,13 @@ Standalone function, callable and testable independently.
 
 ```python
 paths = _get_all_filepaths(directory_path)
-ingested = get_ingested_files()
-purge_stale_files(directory_path, ingested, verbose)   # step 1: purge first
-paths = _filter_already_ingested(paths, ingested)      # step 2: skip unchanged
+purge_stale_files(directory_path, purge_modified=True, verbose=verbose)
+ingested = get_ingested_files(directory_path)          # fresh query after purge
+paths = _filter_already_ingested(paths, ingested, verbose=verbose)
 # ... existing batching/embedding/insert logic
 ```
+
+Note: `get_ingested_files()` is called **after** the purge so the set reflects current DB state. No side effects — purge doesn't mutate any passed-in data.
 
 ### Files to modify
 
@@ -63,10 +67,11 @@ paths = _filter_already_ingested(paths, ingested)      # step 2: skip unchanged
 - **File moved to new directory**: ingested as new (different `dir_path`), old path chunks purged
 - **Empty DB**: ingested set is empty, purge is a no-op, all files ingested normally
 - **Deleted subdirectory**: all nested files purged (they won't pass `os.path.isfile`)
+- **project_id fragmentation**: re-ingested files get a new project_id — accepted for now
 
 ## Verification
 
 1. Ingest a directory — all files processed
 2. Re-run — all files skipped, nothing purged
 3. Delete a file from disk, re-run — stale chunks purged, rest skipped
-4. Modify a file (change size), re-run — old chunks remain but new chunks added (note: does NOT delete old chunks for changed files — we could add this if desired)
+4. Modify a file (change size), re-run — old chunks purged, file re-ingested with fresh embeddings
