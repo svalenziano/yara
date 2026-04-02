@@ -1,3 +1,6 @@
+import uuid
+
+from openinference.instrumentation import using_session
 from opentelemetry import trace
 from prompt_toolkit import prompt
 from prompt_toolkit.cursor_shapes import CursorShape
@@ -15,7 +18,6 @@ from yara.types import SimilarChunk
 
 console = Console()
 tracer = trace.get_tracer(__name__)
-
 
 def sources_panel(sources: list[SimilarChunk]) -> Panel:
     """
@@ -77,47 +79,49 @@ def stream_assistant(chunks):
 
 def chat_loop():
     cli_history_file = FileHistory(".yara_chat_history")
+    session_id = str(uuid.uuid4())
 
-    conversation = Conversation()
+    with using_session(session_id):
+        conversation = Conversation()
 
-    render_assistant(conversation.first_assistant_prompt())
+        render_assistant(conversation.first_assistant_prompt())
 
-    while True:
-        try:
-            query = get_user_input(cli_history_file)
-        except (EOFError, KeyboardInterrupt):
-            render_assistant("Goodbye!")
-            break
+        while True:
+            try:
+                query = get_user_input(cli_history_file)
+            except (EOFError, KeyboardInterrupt):
+                render_assistant("Goodbye!")
+                break
 
-        if query.strip().lower().strip("/") == "exit":
-            render_assistant("Goodbye!")
-            break
+            if query.strip().lower().strip("/") == "exit":
+                render_assistant("Goodbye!")
+                break
 
-        if not query.strip():
-            continue
+            if not query.strip():
+                continue
 
-        with tracer.start_as_current_span(
-            "query",
-            attributes={
-                "input.value": query,
-            },
-        ) as span:
-            conversation.add_entry("user", query)
+            with tracer.start_as_current_span(
+                "query",
+                attributes={
+                    "input.value": query,
+                },
+            ) as span:
+                conversation.add_entry("user", query)
 
-            # do RAG at every loop, for now.
-            # Todo: add real routing
-            handler = not_a_router(conversation)
-            llm_response_stream = handler(conversation)
+                # do RAG at every loop, for now.
+                # Todo: add real routing
+                handler = not_a_router(conversation)
+                llm_response_stream = handler(conversation)
 
-            # render response and provide full response for logging
-            llm_response = stream_assistant(llm_response_stream)
+                # render response and provide full response for logging
+                llm_response = stream_assistant(llm_response_stream)
 
-            sources = conversation.read_sources()
-            if sources:
-                console.print(sources_panel(sources))
-                console.print()
-                conversation.clear_sources()
-            span.set_attribute("output.value", llm_response)
+                sources = conversation.read_sources()
+                if sources:
+                    console.print(sources_panel(sources))
+                    console.print()
+                    conversation.clear_sources()
+                span.set_attribute("output.value", llm_response)
 
 
 if __name__ == "__main__":
