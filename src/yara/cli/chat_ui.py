@@ -7,16 +7,43 @@ from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.spinner import Spinner
 
 from yara.services.conversation import Conversation
 from yara.services.router import not_a_router
+from yara.types import SimilarChunk
 
 console = Console()
 tracer = trace.get_tracer(__name__)
 
 
+def sources_panel(sources: list[SimilarChunk]) -> Panel:
+    """
+    Deduplicate by dir_path+filename, sort alphabetically,
+    render with styled paths.
+    """
+    deduplicated: list[str] = []
+
+    for idx, source in enumerate(sources):
+        fullpath = f"{idx}) '{source['filename']}'"
+        # fullpath = f"{idx}) {source['dir_path']}/{source['filename']}"
+        if fullpath not in deduplicated:
+            deduplicated.append(fullpath)
+    deduplicated.sort()
+    return Panel(
+        Markdown("\n".join(deduplicated)),
+        title="Sources",
+        border_style="grey50",
+        style="grey50",
+    )
+
+
 def assistant_panel(text: str) -> Panel:
     return Panel(Markdown(text), title="Assistant", border_style="bright_black")
+
+
+def loading_panel() -> Panel:
+    return Panel(Spinner("dots"), title="Assistant", border_style="bright_black")
 
 
 def get_user_input(history):
@@ -29,7 +56,7 @@ def get_user_input(history):
 
 def render_assistant(text):
     console.print()
-    console.print(assistant_panel(text))  # will not render if you place inside f-string
+    console.print(assistant_panel(text))
     console.print()
 
 
@@ -37,7 +64,7 @@ def stream_assistant(chunks):
     full_text = ""
     console.print()
     with Live(
-        assistant_panel("..."),
+        loading_panel(),
         console=console,
         refresh_per_second=12,
     ) as live:
@@ -77,12 +104,19 @@ def chat_loop():
         ) as span:
             conversation.add_entry("user", query)
 
-            # do RAG at every loop, for now.  Todo: add real routing
+            # do RAG at every loop, for now.
+            # Todo: add real routing
             handler = not_a_router(conversation)
             llm_response_stream = handler(conversation)
 
             # render response and provide full response for logging
             llm_response = stream_assistant(llm_response_stream)
+
+            sources = conversation.read_sources()
+            if sources:
+                console.print(sources_panel(sources))
+                console.print()
+                conversation.clear_sources()
             span.set_attribute("output.value", llm_response)
 
 

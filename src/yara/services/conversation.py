@@ -1,6 +1,9 @@
 from collections.abc import Sequence
 from textwrap import dedent
-from typing import Literal, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
+
+if TYPE_CHECKING:
+    from yara.types import SimilarChunk
 
 Role = Literal["developer", "assistant", "user"]
 
@@ -26,6 +29,7 @@ class Conversation:
             {"role": "developer", "content": SYSTEM_PROMPT},
             {"role": "assistant", "content": greeting or DEFAULT_GREETING},
         ]
+        self._sources: list[SimilarChunk] = []
 
     def __len__(self):
         return len(self.entries)
@@ -59,6 +63,20 @@ class Conversation:
         Warning: do not mutate the object returned by this method!
         """
         return self.entries.copy()
+
+    def add_sources(self, sources: list["SimilarChunk"]) -> None:
+        """Only works when self._sources is empty. Raises if sources already exist."""
+        if len(self._sources) > 0:
+            raise ValueError("self._sources already contains sources!")
+        self._sources.extend(sources)
+
+    def read_sources(self) -> list["SimilarChunk"]:
+        """Return current sources. Empty list if none exist."""
+        return self._sources
+
+    def clear_sources(self) -> None:
+        """Clear the sources list."""
+        self._sources.clear()
 
     def get_augmented_entries(self, developer_prompt: str):
         """
