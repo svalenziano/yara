@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 from typing import cast
 
@@ -6,6 +7,9 @@ from psycopg2.extras import Json, RealDictCursor, RealDictRow
 
 from yara.config import env
 from yara.types import Chunk, SimilarChunk
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 @contextmanager
@@ -162,7 +166,9 @@ def delete_chunks_for_file(dir_path: str, filename: str) -> int:
     with _database_connect() as connection:
         with connection.cursor() as cursor:
             cursor.execute(query, (dir_path, filename))
-            return cursor.rowcount
+            count = cursor.rowcount
+            logger.info("DELETE chunk WHERE dir_path=%s filename=%s → %d rows", dir_path, filename, count)
+            return count
 
 
 def insert_chunks(chunks: list[Chunk], project_id: int | None = None) -> int:
@@ -209,6 +215,7 @@ def insert_chunks(chunks: list[Chunk], project_id: int | None = None) -> int:
                     ),
                 )
                 insert_count += 1
+    logger.info("INSERT chunk: %d rows (project_id=%d)", insert_count, project_id)
     return insert_count
 
 

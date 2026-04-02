@@ -2,12 +2,16 @@
 Ingest data from filesystem into Database
 """
 
+import logging
 import os
 import random
 from collections.abc import Iterable
 from math import ceil
 
 from yara.config import env
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 from yara.db.pgvector import (
     delete_chunks_for_file,
     get_chunk_count,
@@ -51,7 +55,6 @@ def _get_all_filepaths(
     directory: str,
     extensions: list[str] = ["md", "txt"],
     limit=LIMIT,
-    verbose=VERBOSE,
 ) -> list[str]:
     """
     Walk the directory recursively and return paths
@@ -73,8 +76,7 @@ def _get_all_filepaths(
                 found.append(os.path.join(dirpath, filename))
 
         dirnames[:] = [d for d in dirnames if "." not in d]
-    if verbose:
-        print(f"Found {len(found)} files.")
+    logger.debug("Found %d files in %s", len(found), directory)
     return found
 
 
@@ -135,9 +137,8 @@ def _bundle_files(filepaths: list[str]) -> list[FileBundle]:
             errors.append(e)
             error_paths.append(path)
     if error_paths:
-        print("\nIOErrors while reading files:")
         for p in error_paths:
-            print(p)
+            logger.warning("IOError reading file: %s", p)
         raise IOError(errors)
     return bundles
 
@@ -167,9 +168,7 @@ def _files_to_chunks(files: Iterable[FileBundle]) -> list[Chunk]:
     return chunks
 
 
-def purge_stale_files(
-    directory_path: str, purge_modified: bool = True, verbose=VERBOSE
-) -> int:
+def purge_stale_files(directory_path: str, purge_modified: bool = True) -> int:
     """
     Deletes chunks from the DB for files that no longer exist on disk,
     or whose filesize has changed (when purge_modified=True).
@@ -185,37 +184,36 @@ def purge_stale_files(
             to_purge.append((dir_path, filename, "modified"))
 
     for dir_path, filename, reason in to_purge:
+        logger.debug("Purging %s/%s (reason: %s)", dir_path, filename, reason)
         delete_chunks_for_file(dir_path, filename)
 
-    if verbose and to_purge:
-        stale = sum(1 for *_, r in to_purge if r == "stale")
-        modified = sum(1 for *_, r in to_purge if r == "modified")
-        print(f"  Purged {len(to_purge)} file(s): {stale} stale, {modified} modified.")
+    stale = sum(1 for *_, r in to_purge if r == "stale")
+    modified = sum(1 for *_, r in to_purge if r == "modified")
+    logger.info("Purge complete: %d stale, %d modified", stale, modified)
     return len(to_purge)
 
 
 def _filter_already_ingested(
-    paths: list[str], ingested: set[tuple[str, str, int]], verbose=VERBOSE
+    paths: list[str], ingested: set[tuple[str, str, int]]
 ) -> list[str]:
     """
     Returns only paths not already present in the DB with the same filesize.
     """
     filtered = []
-    skipped = 0
     for path in paths:
         dir_path = os.path.dirname(path)
         filename = os.path.basename(path)
         filesize = os.path.getsize(path)
         if (dir_path, filename, filesize) in ingested:
-            skipped += 1
+            logger.debug("Skipping already-ingested: %s/%s", dir_path, filename)
         else:
             filtered.append(path)
-    if verbose and skipped:
-        print(f"  Skipped {skipped} already-ingested file(s).")
+    skipped = len(paths) - len(filtered)
+    logger.info("Skip complete: %d unchanged, %d to ingest", skipped, len(filtered))
     return filtered
 
 
-def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> None:
+def ingest_files_to_db(directory_path: str, batch_size=100) -> None:
     """
     **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
 
@@ -236,25 +234,22 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
                         filesize
                         metadata = {}
     """
-    if verbose:
-        print("\n⌛ Ingesting files...")
+    logger.info("Starting ingestion for %s", directory_path)
 
     paths = _get_all_filepaths(directory_path)
-    purge_stale_files(directory_path, purge_modified=True, verbose=verbose)
+    logger.info("Found %d files", len(paths))
+
+    purge_stale_files(directory_path, purge_modified=True)
     ingested = get_ingested_files(directory_path)
-    paths = _filter_already_ingested(paths, ingested, verbose=verbose)
+    paths = _filter_already_ingested(paths, ingested)
 
-    batches = ceil(len(paths) / batch_size)
-
-    if verbose:
-        print(f"\nIngesting in {batches} batches.")
+    batches = ceil(len(paths) / batch_size) if paths else 0
+    logger.info("Ingesting in %d batch(es)", batches)
 
     project_id = get_max_project_id() + 1
+    total_inserted = 0
 
     for batch in range(batches):
-        if verbose:
-            print(f"\nHandling batch {batch}")
-
         start = batch * batch_size
         batch_paths = paths[start : start + batch_size]
 
@@ -265,8 +260,7 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
             {"filename": chunk.filename, "filepath": chunk.dir_path} for chunk in chunks
         ]
 
-        if verbose:
-            print(f"  Chunk count = {len(texts)}")
+        logger.debug("Batch %d/%d — %d chunks", batch + 1, batches, len(chunks))
 
         if MOCK:
             raise Exception("Not implemented")
@@ -276,21 +270,21 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
         for embedding in embeddings:
             chunks[embedding.index].embedding = embedding.embedding
 
-        # push chunks to the database
         inserted_rows = insert_chunks(chunks, project_id=project_id)
 
         if inserted_rows != len(chunks):
             raise Exception(
-                f"  ❌ Expected {len(chunks)} insertions, got {inserted_rows}"
+                f"Expected {len(chunks)} insertions, got {inserted_rows}"
             )
 
-        if verbose:
-            print(f"  ✅ INSERTED {inserted_rows} rows.")
+        total_inserted += inserted_rows
+        logger.info("Inserted %d chunks (batch %d/%d)", inserted_rows, batch + 1, batches)
+
+    logger.info("Ingestion complete: %d files, %d chunks inserted", len(paths), total_inserted)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
-    ingest_files_to_db(
-        path,
-    )
-    print(f"\n📦 Total chunks in DB: {get_chunk_count()}")
+    ingest_files_to_db(path)
+    logger.info("Total chunks in DB: %d", get_chunk_count())
