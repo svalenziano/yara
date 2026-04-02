@@ -29,11 +29,42 @@ python -m yara.main
 		- [x] return the top_k matches
 - [ ] Interactive CLI
 	- [ ] LLM-powered question answering based on semantic query
-		- [ ] super basic - no classification - new context on every request - do the standard Wengrow loop
+		- [x] super basic - no classification - new context on every request - do the standard Wengrow loop
 		- [ ] routing / classification step
-		- [ ] LLM provides filename references
+			- [ ] question about new topic (retrieve!)
+			- [ ] question about current topic (no retrieval)
+			- [ ] LOA `/home/senorvalenz/projects/capstone/yara/src/yara/services/conversation.py`
+		- [ ] LLM provides references to actual content:
+			- relevant text excerpt
+			- highlighted terms from user query
+			- filename
 	- [ ] ~~semantic query - return data in LLM-friendly format~~  Only do this if the LLM has trouble
 	- [ ] Initiate ingestion
+	- [ ] Smart ingestion - only re-ingest files that have changed
+	- [ ] "Show me" -> view the file itself with the relevant sections highlighted
+
+Rough execution plan: Extracting router and handlers from main loop
+```mermaid
+flowchart
+  a(User query)
+  a --"(query:str, convo:dict)"--> b(Classifer)
+  b --"(query:str, convo:dict)"--> c(Handler: lots of magic happens in here incl. retrieval, tool calls)
+  c --"str: Last LLM message"--> d(render_assistant)
+  d --"print LLM response to terminal"-->a
+```
+
+
+How do the python modules interact with each other?
+```mermaid
+flowchart LR                                                                        
+    chat_ui -->|"classify(query, history)"| router                                  
+    router -->|route string| chat_ui                                                
+    chat_ui -->|"ROUTE_HANDLERS[route](query, conv)"| handlers                      
+    handlers --> get_chunks                                                         
+    handlers --> openai_client                                                      
+    handlers --> ingest     
+```
+
 - [ ] Bonus points:
 	- [ ] DB:
 		- [ ] Create relationship between `chunk` and `file` instead of denormalizing data into each chunk.  
@@ -82,13 +113,13 @@ b(Do Deterministic Stuff)
 a--"slash command"-->b
 b-->a
 
-c(Routing step: Query needs additional context? Small LLM Call.)
+c(Routing. Small LLM Call.)
 d(Augment history w/ retrieval from vector DB)
 a-->c
-c--"Yes"-->d
+c--"I Need additional stuff"-->d
 
 e(Analyze Data & Respond to User. Large LLM Call.)
-c--"No"-->e
+c--"I have what I need"-->e
 d-->e
 f(Print response)
 e-->f
@@ -105,10 +136,14 @@ aa-->a
 a("`**Routing step**
 LLM Classifies the request, 
 App routes the request`")
-a-->b(User is asking about content)-->c(RAG)
+a-->b(Q about content on a specific topic)-->c(RAG) --> z
+a-->k(Q about a new topic) --> l(Re-write/compress history) --> c --> z
+a-->m(Follow-up Q on retrieved content)-->z
+a-->i(User is asking for an overview of the files in the system)-->j('fd' or Tree)
 a-->d(Ingestion, aka User wants to add more content)-->e(Ingestion pipeline)
 a-->f(User is done)-->Exit
 a-->g(Something else)-->h(Oops, can't do that.  Here are your options.)-->aa
+z(LLM 'Explainer' Call)
 ```
 
 ### The "Agent Loop"

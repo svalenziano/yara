@@ -1,12 +1,12 @@
-from collections.abc import Iterable
 from contextlib import contextmanager
 from typing import cast
 
 import psycopg2
-from psycopg2.extras import RealDictCursor, RealDictRow, Json
+from psycopg2.extras import Json, RealDictCursor, RealDictRow
 
 from yara.config import env
 from yara.types import Chunk, SimilarChunk
+
 
 @contextmanager
 def _database_connect():
@@ -19,27 +19,28 @@ def _database_connect():
     connection = None
     try:
         connection = psycopg2.connect(
-            dbname=env['PG_DB_NAME'],
+            dbname=env["PG_DB_NAME"],
             host=env["PG_HOST"],
             port=env["PG_PORT"],
             user=env["PG_USER"],
-            password=env["PG_PASSWORD"] or None
+            password=env["PG_PASSWORD"] or None,
         )
         yield connection
         connection.commit()
     except Exception as e:
         print("📦 Database error: ", e)
         if connection:
-            connection.rollback() # explicit rollback: fine but not necessary?
+            connection.rollback()  # explicit rollback: fine but not necessary?
         raise
     finally:
         if connection:
             connection.close()
 
+
 def nuke():
     prompt = "Are you sure you wish to nuke and reset the DB? (y/n)?"
 
-    if input(prompt).lower() != 'y':
+    if input(prompt).lower() != "y":
         print("Aborting")
         return
     print("Nuking the DB...")
@@ -48,16 +49,17 @@ def nuke():
         cur = conn.cursor()
         try:
             for table in [
-                'chunk',
+                "chunk",
             ]:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
                 print(f"✅ DROP TABLE {table}")
 
         except Exception as e:
             print("Error durring database setup")
-            raise(e)
+            raise (e)
         finally:
             cur.close()
+
 
 def setup():
     print("Executing DB setup...")
@@ -65,14 +67,15 @@ def setup():
         cur = conn.cursor()
         try:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cur.execute(f"""
+            cur.execute(
+                f"""
                 CREATE TABLE IF NOT EXISTS chunk (
                     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                     project_id BIGINT NOT NULL,
                     filename VARCHAR(500) NOT NULL,
                     dir_path VARCHAR(500) NOT NULL,
                     chunk_text TEXT NOT NULL,
-                    embedding VECTOR({env['VECTOR_DIMS']}) NOT NULL,
+                    embedding VECTOR({env["VECTOR_DIMS"]}) NOT NULL,
                     chunk_number INTEGER NOT NULL,
                     total_chunks INTEGER NOT NULL,
                     filesize INTEGER NOT NULL,
@@ -80,14 +83,16 @@ def setup():
                     created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     modified TIMESTAMP DEFAULT NULL
                 );
-            """, )
-            print(f"✅ Database Setup complete\n")
+            """,
+            )
+            print("✅ Database Setup complete\n")
 
         except Exception as e:
             print("Error durring database setup")
-            raise(e)
+            raise (e)
         finally:
             cur.close()
+
 
 def get_dict(query, params=()) -> list[RealDictRow]:
     with _database_connect() as connection:
@@ -95,11 +100,13 @@ def get_dict(query, params=()) -> list[RealDictRow]:
             cursor.execute(query, params)
             return cursor.fetchall()
 
+
 def get_chunk_count() -> int:
     query = """
         SELECT count(id) FROM chunk;
     """
-    return get_dict(query)[0]['count'] or 0
+    return get_dict(query)[0]["count"] or 0
+
 
 def get_similar_chunks(embedding, top_k: int) -> list[SimilarChunk]:
     """
@@ -117,11 +124,13 @@ def get_similar_chunks(embedding, top_k: int) -> list[SimilarChunk]:
     """
     return [cast(SimilarChunk, dict(d)) for d in get_dict(query, (embedding, top_k))]
 
+
 def get_max_project_id() -> int:
     query = """
         SELECT max(project_id) FROM chunk;
     """
-    return get_dict(query)[0]['max'] or 0
+    return get_dict(query)[0]["max"] or 0
+
 
 def _nuke_chunks():
     result = get_dict("""
@@ -130,10 +139,8 @@ def _nuke_chunks():
     delete_count = len(result)
     print(f"📦 Deleted all {delete_count} from the table.")
 
-def insert_chunks(
-        chunks: list[Chunk], 
-        project_id: int | None=None
-    ) -> int:
+
+def insert_chunks(chunks: list[Chunk], project_id: int | None = None) -> int:
     """
     Returns: number of successful insertions
     **TODO = make project_id dynamic**
@@ -162,19 +169,23 @@ def insert_chunks(
     with _database_connect() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
             for chunk in chunks:
-                cursor.execute(query, (
-                    project_id,
-                    chunk.filename,
-                    chunk.dir_path,
-                    chunk.chunk_text,
-                    chunk.embedding,
-                    chunk.chunk_number,
-                    chunk.total_chunks,
-                    chunk.filesize,
-                    Json(chunk.metadata)
-                ))
+                cursor.execute(
+                    query,
+                    (
+                        project_id,
+                        chunk.filename,
+                        chunk.dir_path,
+                        chunk.chunk_text,
+                        chunk.embedding,
+                        chunk.chunk_number,
+                        chunk.total_chunks,
+                        chunk.filesize,
+                        Json(chunk.metadata),
+                    ),
+                )
                 insert_count += 1
     return insert_count
+
 
 def test():
     print("📦 Testing database connection...")
@@ -183,9 +194,10 @@ def test():
         FROM information_schema.tables
         WHERE table_schema = 'public'
     """)
-    tables = [t['table_name'] for t in result]
+    tables = [t["table_name"] for t in result]
     print(f"    ✅ Database Connected, '{env['PG_DB_NAME']}' Database is present.")
-    print(f"    ✅ Tables found: {", ".join(tables)}")
+    print(f"    ✅ Tables found: {', '.join(tables)}")
+
 
 test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
 

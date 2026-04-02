@@ -1,3 +1,4 @@
+Author: created by Claude and proofed / modified by SV
 
 # pgvector Docker Setup
 

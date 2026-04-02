@@ -1,19 +1,49 @@
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
+from opentelemetry import trace
 from prompt_toolkit import prompt
+from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.cursor_shapes import CursorShape
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.spinner import Spinner
 
-from yara.services.query import simple_query
-from yara.services.openai_client import client
-
+from yara.services.conversation import Conversation
+from yara.services.router import not_a_router
+from yara.types import SimilarChunk
 
 console = Console()
+tracer = trace.get_tracer(__name__)
 
-SYSTEM_PROMPT = "You are a helpful AI assistant tasked with helping the user find materials within a database of documents."
-GREETING = "How can I help you today?"
+
+def sources_panel(sources: list[SimilarChunk]) -> Panel:
+    """
+    Deduplicate by dir_path+filename, sort alphabetically,
+    render with styled paths.
+    """
+    deduplicated: list[str] = []
+
+    for idx, source in enumerate(sources):
+        fullpath = f"{idx}) '{source['filename']}'"
+        # fullpath = f"{idx}) {source['dir_path']}/{source['filename']}"
+        if fullpath not in deduplicated:
+            deduplicated.append(fullpath)
+    deduplicated.sort()
+    return Panel(
+        Markdown("\n".join(deduplicated)),
+        title="Sources",
+        border_style="grey50",
+        style="grey50",
+    )
+
+
+def assistant_panel(text: str) -> Panel:
+    return Panel(Markdown(text), title="Assistant", border_style="bright_black")
+
+
+def loading_panel() -> Panel:
+    return Panel(Spinner("dots"), title="Assistant", border_style="bright_black")
 
 
 def get_user_input(history):
@@ -26,65 +56,68 @@ def get_user_input(history):
 
 def render_assistant(text):
     console.print()
-    console.print(Panel(Markdown(text), title="Assistant", border_style="bright_black"))
+    console.print(assistant_panel(text))
     console.print()
 
 
-def chat_loop():
-    history_file = FileHistory(".yara_chat_history")
-    conversation = [
-        {"role": "developer", "content": SYSTEM_PROMPT},
-        {"role": "assistant", "content": GREETING},
-    ]
+def stream_assistant(chunks):
+    full_text = ""
+    console.print()
+    with Live(
+        loading_panel(),
+        console=console,
+        refresh_per_second=12,
+    ) as live:
+        for chunk in chunks:
+            full_text += chunk
+            live.update(assistant_panel(full_text))
+    console.print()
+    return full_text
 
-    render_assistant(GREETING)
+
+def chat_loop():
+    cli_history_file = FileHistory(".yara_chat_history")
+
+    conversation = Conversation()
+
+    render_assistant(conversation.first_assistant_prompt())
 
     while True:
         try:
-            ask = get_user_input(history_file)
+            query = get_user_input(cli_history_file)
         except (EOFError, KeyboardInterrupt):
-            console.print("\nGoodbye!")
+            render_assistant("Goodbye!")
             break
 
-        if ask.strip().lower().strip("/") == "exit":
-            console.print("\nGoodbye!")
+        if query.strip().lower().strip("/") == "exit":
+            render_assistant("Goodbye!")
             break
 
-        if not ask.strip():
+        if not query.strip():
             continue
 
-        found = simple_query(ask)
+        with tracer.start_as_current_span(
+            "query",
+            attributes={
+                "input.value": query,
+            },
+        ) as span:
+            conversation.add_entry("user", query)
 
-        conversation.append({
-            "role": "user",
-            "content": f"""Please use these documents to answer my question.
-                Please do NOT rely on your training to answer my question.
-                If the question is not answerable based on these documents, please let me know.
+            # do RAG at every loop, for now.
+            # Todo: add real routing
+            handler = not_a_router(conversation)
+            llm_response_stream = handler(conversation)
 
-                Here are the documents:
-                <documents>
-                {found}
-                </documents>
+            # render response and provide full response for logging
+            llm_response = stream_assistant(llm_response_stream)
 
-                Here is my question:
-                <question>
-                {ask}
-                </question>
-                """,
-        })
-
-        response = client.responses.create(
-            model="gpt-4.1-2025-04-14",
-            input=conversation,  # type: ignore
-            temperature=0,
-        )
-
-        conversation.append({
-            "role": "assistant",
-            "content": response.output_text,
-        })
-
-        render_assistant(response.output_text)
+            sources = conversation.read_sources()
+            if sources:
+                console.print(sources_panel(sources))
+                console.print()
+                conversation.clear_sources()
+            span.set_attribute("output.value", llm_response)
 
 
 if __name__ == "__main__":
