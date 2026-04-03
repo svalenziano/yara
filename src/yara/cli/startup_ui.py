@@ -91,7 +91,7 @@ def startup_loop() -> int:
 def project_wizard() -> int:
     # Step 1: name
     try:
-        name = prompt(HTML("<ansiblue>Project name (≤ 40 chars): </ansiblue>")).strip()
+        name = console.input("[blue]Project name (≤ 40 chars): [/blue]").strip()
     except (KeyboardInterrupt, EOFError):
         raise WizardCancelled
 
@@ -102,7 +102,7 @@ def project_wizard() -> int:
     # Step 2: description
     try:
         description = (
-            prompt(HTML("<ansiblue>Description (optional): </ansiblue>")).strip()
+            console.input("[blue]Description (optional): [/blue]").strip()
             or None
         )
     except (KeyboardInterrupt, EOFError):
@@ -111,7 +111,7 @@ def project_wizard() -> int:
     # Step 3: ingestion path
     while True:
         try:
-            path = prompt(HTML("<ansiblue>Ingestion path: </ansiblue>")).strip()
+            path = console.input("[blue]Ingestion path: [/blue]").strip()
         except (KeyboardInterrupt, EOFError):
             raise WizardCancelled
 
