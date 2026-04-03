@@ -204,7 +204,9 @@ def _filter_already_ingested(
         dir_path = os.path.dirname(path)
         filename = os.path.basename(path)
         filesize = os.path.getsize(path)
-        if (dir_path, filename, filesize) in ingested:
+        if filesize < 0:
+            logger.debug("Skipping empty file: %s/%s", dir_path, filename)
+        elif (dir_path, filename, filesize) in ingested:
             logger.debug("Skipping already-ingested: %s/%s", dir_path, filename)
         else:
             filtered.append(path)

@@ -149,12 +149,14 @@ def get_ingested_files(dir_path: str) -> set[tuple[str, str, int]]:
     Returns set of (dir_path, filename, filesize) for all chunks whose
     dir_path starts with the given directory.
     """
+    dir_path = dir_path.rstrip("/")
+    escaped = dir_path.replace("!", "!!").replace("%", "!%").replace("_", "!_")
     query = """
         SELECT DISTINCT dir_path, filename, filesize
         FROM chunk
-        WHERE dir_path LIKE %s || '%%';
+        WHERE dir_path = %s OR dir_path LIKE %s || '/%%' ESCAPE '!';
     """
-    rows = get_dict(query, (dir_path,))
+    rows = get_dict(query, (dir_path, escaped))
     return {(r["dir_path"], r["filename"], r["filesize"]) for r in rows}
 
 
