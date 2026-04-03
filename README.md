@@ -48,6 +48,11 @@ flowchart LR
 		- [ ] Create relationship between `chunk` and `file` instead of denormalizing data into each chunk.  
 	- [ ] Cache ingestions to avoid re-embedding chunks that haven't changed
 
+## Run tests
+```
+poetry run pytest -v
+```
+
 ## Behaviors
 Here's the flow:
 

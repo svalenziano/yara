@@ -22,7 +22,7 @@ def render_assistant(text):
     console.print(assistant_panel(text))
 
 def render_home(content: str):
-    whitespace(10)
+    whitespace(3)
     console.print(home_panel(content))
 
 
