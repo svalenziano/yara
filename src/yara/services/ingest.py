@@ -208,6 +208,7 @@ def _filter_already_ingested(
             logger.debug("Skipping already-ingested: %s/%s", dir_path, filename)
         else:
             filtered.append(path)
+            logger.info("Queued for ingestion: %s/%s", dir_path, filename)
     skipped = len(paths) - len(filtered)
     logger.info("Skip complete: %d unchanged, %d to ingest", skipped, len(filtered))
     return filtered
@@ -215,24 +216,7 @@ def _filter_already_ingested(
 
 def ingest_files_to_db(directory_path: str, batch_size=100) -> None:
     """
-    **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
-
-    - Side effect: push file chunks and metadata to database
-    - Algo:
-        - paths = get all paths
-        - file_bundles = chunkify_files(paths)
-        - for each file bundle:
-            - for each chunk:
-                - insert_chunk (pgvector.py)
-                    - push to DB
-                        filename
-                        dir_path
-                        chunk_text
-                        embedding
-                        chunk_number
-                        total_chunks
-                        filesize
-                        metadata = {}
+    Chunk and ingest files into the Vector Database
     """
     logger.info("Starting ingestion for %s", directory_path)
 
@@ -262,10 +246,7 @@ def ingest_files_to_db(directory_path: str, batch_size=100) -> None:
 
         logger.debug("Batch %d/%d — %d chunks", batch + 1, batches, len(chunks))
 
-        if MOCK:
-            raise Exception("Not implemented")
-        else:
-            embeddings = generate_embeddings(texts, metadata)
+        embeddings = generate_embeddings(texts, metadata)
 
         for embedding in embeddings:
             chunks[embedding.index].embedding = embedding.embedding
@@ -273,18 +254,24 @@ def ingest_files_to_db(directory_path: str, batch_size=100) -> None:
         inserted_rows = insert_chunks(chunks, project_id=project_id)
 
         if inserted_rows != len(chunks):
-            raise Exception(
-                f"Expected {len(chunks)} insertions, got {inserted_rows}"
-            )
+            raise Exception(f"Expected {len(chunks)} insertions, got {inserted_rows}")
 
         total_inserted += inserted_rows
-        logger.info("Inserted %d chunks (batch %d/%d)", inserted_rows, batch + 1, batches)
+        logger.info(
+            "Inserted %d chunks (batch %d/%d)", inserted_rows, batch + 1, batches
+        )
 
-    logger.info("Ingestion complete: %d files, %d chunks inserted", len(paths), total_inserted)
+    logger.info(
+        "Ingestion complete: %d files, %d chunks inserted", len(paths), total_inserted
+    )
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(name)s %(levelname)s %(message)s",
+        filename="yara.log",
+    )
     path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
     ingest_files_to_db(path)
     logger.info("Total chunks in DB: %d", get_chunk_count())
