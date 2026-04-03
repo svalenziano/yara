@@ -177,12 +177,10 @@ User interface:
 ```
 
 ### Database ERD
-
-
 ```mermaid
     erDiagram
         chunk {
-            SERIAL id PK
+            SERIAL id PK "GENERATED ALWAYS AS IDENTITY PRIMARY KEY"
             bigint project_id FK "Indexed. Each chunk has one project_id"
             varchar(500) filename "Just the filename and extension"
             varchar(500) dir_path "Just the filepath, no filename or extension"
@@ -191,14 +189,16 @@ User interface:
             integer chunk_number "e.g. chunk 5 of x chunks"
             integer total_chunks "DENORMALIZED e.g. this file was split into 10 chunks"
             integer filesize "Filesize in bytes. For file comparison / cache invalidation."
+            timestampz created "DEFAULT CURRENT_TIMESTAMP, not currently used"
+            timestampz modified "DEFAULT NULL, not currently used"
             JSONB metadata "Future: misc. metadata that may vary per doc"
         }
         
         project {
-	        SERIAL id PK
-            varchar(100) name
+	        SERIAL id PK "GENERATED ALWAYS AS IDENTITY PRIMARY KEY"
+            varchar(100) name "NOT NULL"
             varchar(500) ingestion_path "Files are ingested from this base path."
-            timestampz last_ingested
+            timestampz last_ingested "Updated at the end of each ingestion / refresh"
         }
         
         project ||--o{ chunk : "has"

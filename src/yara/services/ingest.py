@@ -13,8 +13,9 @@ from yara.db.pgvector import (
     delete_chunks_for_file,
     get_chunk_count,
     get_ingested_files,
-    get_max_project_id,
+    get_or_create_project,
     insert_chunks,
+    update_project_last_ingested,
 )
 from yara.services.openai_client import generate_embeddings
 from yara.types import Chunk, FileBundle
@@ -24,7 +25,7 @@ logger.addHandler(logging.NullHandler())
 
 
 MOCK = False  # not implemented
-LIMIT: int | None = 20
+LIMIT: int | None = 400
 VERBOSE = env["VERBOSE"]
 # EXTENSIONS = (
 #     "md",
@@ -169,13 +170,13 @@ def _files_to_chunks(files: Iterable[FileBundle]) -> list[Chunk]:
     return chunks
 
 
-def purge_stale_files(directory_path: str, purge_modified: bool = True) -> int:
+def purge_stale_files(directory_path: str, project_id: int, purge_modified: bool = True) -> int:
     """
     Deletes chunks from the DB for files that no longer exist on disk,
     or whose filesize has changed (when purge_modified=True).
     Returns count of purged files.
     """
-    ingested = get_ingested_files(directory_path)
+    ingested = get_ingested_files(directory_path, project_id)
     to_purge = []
     for dir_path, filename, filesize in ingested:
         full_path = os.path.join(dir_path, filename)
@@ -186,7 +187,7 @@ def purge_stale_files(directory_path: str, purge_modified: bool = True) -> int:
 
     for dir_path, filename, reason in to_purge:
         logger.debug("Purging %s/%s (reason: %s)", dir_path, filename, reason)
-        delete_chunks_for_file(dir_path, filename)
+        delete_chunks_for_file(dir_path, filename, project_id)
 
     stale = sum(1 for *_, r in to_purge if r == "stale")
     modified = sum(1 for *_, r in to_purge if r == "modified")
@@ -226,8 +227,8 @@ def ingest_files_to_db(directory_path: str, project_id: int, batch_size=100) -> 
     paths = _get_all_filepaths(directory_path)
     logger.info("Found %d files", len(paths))
 
-    purge_stale_files(directory_path, purge_modified=True)
-    ingested = get_ingested_files(directory_path)
+    purge_stale_files(directory_path, project_id, purge_modified=True)
+    ingested = get_ingested_files(directory_path, project_id)
     paths = _filter_already_ingested(paths, ingested)
 
     batches = ceil(len(paths) / batch_size) if paths else 0
@@ -266,16 +267,24 @@ def ingest_files_to_db(directory_path: str, project_id: int, batch_size=100) -> 
     logger.info(
         "Ingestion complete: %d files, %d chunks inserted", len(paths), total_inserted
     )
+    update_project_last_ingested(project_id)
 
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
         format="%(name)s %(levelname)s %(message)s",
-        filename="yara.log",
+        handlers=[
+            logging.FileHandler("yara.log"),
+            logging.StreamHandler(),
+        ],
     )
-    logger.info("🟢 Let's do this!")
-    path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/02_Personal/Recipes/"
-    proj_id = get_max_project_id()
-    ingest_files_to_db(path, proj_id)
-    logger.info("🟢 Done! Total chunks in DB: %d", get_chunk_count())
+
+    for project_name, path in [
+        ("software","/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/0/Software-Details"),
+        ("food", "/mnt/d/My Junk/Obsidian/SV_Personal_3/02_Personal/Recipes/"),
+    ]:
+        logger.info("🟢 Let's do this!")
+        proj_id = get_or_create_project(project_name, path)
+        ingest_files_to_db(path, proj_id)
+        logger.info("🟢 Done! Total chunks in DB: %d", get_chunk_count())

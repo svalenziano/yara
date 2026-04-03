@@ -24,7 +24,8 @@ DEFAULT_GREETING = "How can I help you today?"
 
 
 class Conversation:
-    def __init__(self, greeting: str | None = None):
+    def __init__(self, project_id: int, greeting: str | None = None):
+        self.project_id = project_id
         self.entries: list[Entry] = [
             {"role": "developer", "content": SYSTEM_PROMPT},
             {"role": "assistant", "content": greeting or DEFAULT_GREETING},
@@ -91,5 +92,5 @@ class Conversation:
 
 
 if __name__ == "__main__":
-    c = Conversation()
+    c = Conversation(project_id=1)
     c.get_augmented_entries("You are a paperweight")

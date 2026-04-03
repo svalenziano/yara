@@ -52,9 +52,7 @@ def nuke():
     with _database_connect() as conn:
         cur = conn.cursor()
         try:
-            for table in [
-                "chunk",
-            ]:
+            for table in ["chunk", "project"]:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
                 print(f"✅ DROP TABLE {table}")
 
@@ -72,10 +70,22 @@ def setup():
         try:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
             cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS project (
+                    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    description TEXT,
+                    ingestion_path VARCHAR(500) NOT NULL,
+                    last_ingested TIMESTAMPTZ DEFAULT NULL,
+                    active BOOLEAN NOT NULL DEFAULT TRUE
+                );
+                """,
+            )
+            cur.execute(
                 f"""
                 CREATE TABLE IF NOT EXISTS chunk (
                     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                    project_id BIGINT NOT NULL,
+                    project_id BIGINT NOT NULL REFERENCES project(id),
                     filename VARCHAR(500) NOT NULL,
                     dir_path VARCHAR(500) NOT NULL,
                     chunk_text TEXT NOT NULL,
@@ -112,28 +122,87 @@ def get_chunk_count() -> int:
     return get_dict(query)[0]["count"] or 0
 
 
-def get_similar_chunks(embedding, top_k: int) -> list[SimilarChunk]:
+def list_projects() -> list[RealDictRow]:
+    return get_dict(
+        """
+        SELECT p.id, p.name, p.description, p.ingestion_path, p.last_ingested,
+               COUNT(DISTINCT c.filename) AS file_count
+        FROM project p
+        LEFT JOIN chunk c ON c.project_id = p.id
+        WHERE p.active = TRUE
+        GROUP BY p.id
+        ORDER BY p.id;
+        """
+    )
+
+
+def get_project(project_id: int) -> RealDictRow:
+    rows = get_dict(
+        "SELECT id, name, description, ingestion_path, last_ingested FROM project WHERE id = %s;",
+        (project_id,),
+    )
+    return rows[0]
+
+
+def get_or_create_project(name: str, ingestion_path: str, description: str | None = None) -> int:
+    rows = get_dict(
+        "SELECT id FROM project WHERE ingestion_path = %s;",
+        (ingestion_path,),
+    )
+    if rows:
+        return rows[0]["id"]
+    rows = get_dict(
+        "INSERT INTO project (name, ingestion_path, description) VALUES (%s, %s, %s) RETURNING id;",
+        (name, ingestion_path, description),
+    )
+    return rows[0]["id"]
+
+
+def update_project(project_id: int, name: str, description: str | None) -> None:
+    with _database_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE project SET name = %s, description = %s WHERE id = %s;",
+                (name, description, project_id),
+            )
+
+
+def deactivate_project(project_id: int) -> None:
+    with _database_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE project SET active = FALSE WHERE id = %s;",
+                (project_id,),
+            )
+
+
+def update_project_last_ingested(project_id: int) -> None:
+    with _database_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE project SET last_ingested = NOW() WHERE id = %s;",
+                (project_id,),
+            )
+
+
+def get_similar_chunks(embedding, top_k: int, project_id: int) -> list[SimilarChunk]:
     """
     Args:
         embedding: the embedding you wish to find similar chunks to
         top_k: how many records to return?
+        project_id: only return chunks belonging to this project
     """
     query = """
         SELECT
             id, project_id, filename, dir_path, chunk_text,
             1 - (embedding <=> %s::vector) AS cosine_similarity
         FROM chunk
+        WHERE project_id = %s
         ORDER BY cosine_similarity DESC
         LIMIT %s;
     """
-    return [cast(SimilarChunk, dict(d)) for d in get_dict(query, (embedding, top_k))]
-
-
-def get_max_project_id() -> int:
-    query = """
-        SELECT max(project_id) FROM chunk;
-    """
-    return get_dict(query)[0]["max"] or 0
+    rows = get_dict(query, (embedding, project_id, top_k))
+    return [cast(SimilarChunk, dict(d)) for d in rows]
 
 
 def _nuke_chunks():
@@ -144,7 +213,7 @@ def _nuke_chunks():
     print(f"📦 Deleted all {delete_count} from the table.")
 
 
-def get_ingested_files(dir_path: str) -> set[tuple[str, str, int]]:
+def get_ingested_files(dir_path: str, project_id: int) -> set[tuple[str, str, int]]:
     """
     Returns set of (dir_path, filename, filesize) for all chunks whose
     dir_path starts with the given directory.
@@ -152,25 +221,29 @@ def get_ingested_files(dir_path: str) -> set[tuple[str, str, int]]:
     query = """
         SELECT DISTINCT dir_path, filename, filesize
         FROM chunk
-        WHERE dir_path LIKE %s || '%%';
+        WHERE dir_path LIKE %s || '%%'
+        AND project_id = %s;
     """
-    rows = get_dict(query, (dir_path,))
+    rows = get_dict(query, (dir_path, project_id))
     return {(r["dir_path"], r["filename"], r["filesize"]) for r in rows}
 
 
-def delete_chunks_for_file(dir_path: str, filename: str) -> int:
+def delete_chunks_for_file(dir_path: str, filename: str, project_id: int) -> int:
     """
     Deletes all chunks for the given file. Returns count of deleted rows.
     """
-    query = "DELETE FROM chunk WHERE dir_path = %s AND filename = %s;"
+    query = (
+        "DELETE FROM chunk WHERE dir_path = %s AND filename = %s AND project_id = %s;"
+    )
     with _database_connect() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(query, (dir_path, filename))
+            cursor.execute(query, (dir_path, filename, project_id))
             count = cursor.rowcount
             logger.info(
-                "DELETE chunk WHERE dir_path=%s filename=%s → %d rows",
+                "DELETE chunk WHERE dir_path=%s filename=%s project_id=%d → %d rows",
                 dir_path,
                 filename,
+                project_id,
                 count,
             )
             return count
@@ -237,4 +310,4 @@ def test():
 test()  # RUN A TEST WHENEVER THE MODULE IS LOADED
 
 if __name__ == "__main__":
-    print(get_max_project_id())
+    setup()

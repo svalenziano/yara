@@ -41,7 +41,9 @@ def rag_request(conversation: Conversation) -> Generator[str, None, None]:
         query = conversation.get_last_user_query()
         enriched = enrich_query(conversation)
 
-        found: list[SimilarChunk] = query_similar_chunks(enriched)
+        found: list[SimilarChunk] = query_similar_chunks(
+            enriched, project_id=conversation.project_id
+        )
         formatted_chunks: str = format_chunks(found)
         conversation.add_sources(found)
 

@@ -6,19 +6,22 @@ from prompt_toolkit import prompt
 from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
-from rich.console import Console
-from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.spinner import Spinner
 
-from yara.cli.commands import CommandContext, SlashCommandLexer, SLASH_COMMAND_STYLE, dispatch
-
+from yara.cli.colors import console
+from yara.cli.commands import (
+    SLASH_COMMAND_STYLE,
+    CommandContext,
+    SlashCommandLexer,
+    dispatch,
+)
+from yara.cli.ui_helpers import render_assistant, stream_assistant
+from yara.db.pgvector import get_project
 from yara.services.conversation import Conversation
 from yara.services.router import not_a_router
 from yara.types import SimilarChunk
 
-console = Console()
 tracer = trace.get_tracer(__name__)
 
 
@@ -43,20 +46,13 @@ def sources_panel(sources: list[SimilarChunk]) -> Panel:
         # fullpath = f"{idx}) {source['dir_path']}/{source['filename']}"
         if path not in deduplicated:
             deduplicated.append(path)
+    # numbered = numbered_markdown_list(deduplicated)
     return Panel(
         Markdown("\n".join(deduplicated)),
         title="Sources",
         border_style="grey50",
         style="grey50",
     )
-
-
-def assistant_panel(text: str) -> Panel:
-    return Panel(Markdown(text), title="Assistant", border_style="bright_black")
-
-
-def loading_panel() -> Panel:
-    return Panel(Spinner("dots"), title="Assistant", border_style="bright_black")
 
 
 def get_user_input(history):
@@ -69,34 +65,16 @@ def get_user_input(history):
     )
 
 
-def render_assistant(text):
-    console.print()
-    console.print(assistant_panel(text))
-    console.print()
-
-
-def stream_assistant(chunks):
-    full_text = ""
-    console.print()
-    with Live(
-        loading_panel(),
-        console=console,
-        refresh_per_second=12,
-    ) as live:
-        for chunk in chunks:
-            full_text += chunk
-            live.update(assistant_panel(full_text))
-    console.print()
-    return full_text
-
-
-def chat_loop():
+def chat_loop(project_id: int) -> str | None:
     cli_history_file = FileHistory(".yara_chat_history")
     session_id = str(uuid.uuid4())
 
     with using_session(session_id):
-        conversation = Conversation()
-        ctx = CommandContext(conversation=conversation, console=console)
+        conversation = Conversation(project_id=project_id)
+        project = dict(get_project(project_id))
+        ctx = CommandContext(
+            conversation=conversation, console=console, project=project
+        )
 
         render_assistant(conversation.first_assistant_prompt())
 
@@ -114,6 +92,8 @@ def chat_loop():
                 if ctx.signal.get("exit"):
                     render_assistant("Goodbye!")
                     break
+                if ctx.signal.get("home"):
+                    return "home"
                 continue
 
             with tracer.start_as_current_span(
@@ -141,4 +121,4 @@ def chat_loop():
 
 
 if __name__ == "__main__":
-    chat_loop()
+    chat_loop(project_id=1)
