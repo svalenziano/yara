@@ -19,29 +19,7 @@ See "Installation" below, activate the virtual environment, and then do:
 python -m yara.main
 ```
 
-## MVP Todo
-- [ ] Backend (no fancy CLI)
-	- [ ] Keyword querying of chunks in the DB (non-semantic, uses SQL queries)
-		- [ ] SELECT * WHERE filename ILIKE {query}
-	- [x] Semantic querying!?
-		- [x] embed the query
-		- [x] query the DB for similar vectors
-		- [x] return the top_k matches
-- [ ] Interactive CLI
-	- [ ] LLM-powered question answering based on semantic query
-		- [x] super basic - no classification - new context on every request - do the standard Wengrow loop
-		- [ ] routing / classification step
-			- [ ] question about new topic (retrieve!)
-			- [ ] question about current topic (no retrieval)
-			- [ ] LOA `/home/senorvalenz/projects/capstone/yara/src/yara/services/conversation.py`
-		- [ ] LLM provides references to actual content:
-			- relevant text excerpt
-			- highlighted terms from user query
-			- filename
-	- [ ] ~~semantic query - return data in LLM-friendly format~~  Only do this if the LLM has trouble
-	- [ ] Initiate ingestion
-	- [ ] Smart ingestion - only re-ingest files that have changed
-	- [ ] "Show me" -> view the file itself with the relevant sections highlighted
+
 
 Rough execution plan: Extracting router and handlers from main loop
 ```mermaid
@@ -199,31 +177,31 @@ User interface:
 ```
 
 ### Database ERD
-Items marked as Future are NOT part of the MVP
+
 
 ```mermaid
     erDiagram
         chunk {
             SERIAL id PK
-            bigint doc_id FK "Future"
-            bigint project_id FK  "Future foreign key"
+            bigint project_id FK "Indexed. Each chunk has one project_id"
             varchar(500) filename "Just the filename and extension"
             varchar(500) dir_path "Just the filepath, no filename or extension"
             text chunk_text "Raw chunk text, prior to embedding"
             vector embedding "pgvector embedding"
             integer chunk_number "e.g. chunk 5 of x chunks"
-            integer total_chunks "e.g. this file was split into 10 chunks"
-            integer filesize "Filesize in bytes. For future file comparison / cache invalidation."
+            integer total_chunks "DENORMALIZED e.g. this file was split into 10 chunks"
+            integer filesize "Filesize in bytes. For file comparison / cache invalidation."
             JSONB metadata "Future: misc. metadata that may vary per doc"
         }
         
-        doc {
-	        bigint id PK "Future"
+        project {
+	        SERIAL id PK
+            varchar(100) name
+            varchar(500) ingestion_path "Files are ingested from this base path."
+            timestampz last_ingested
         }
         
-        project {
-	        bigint id PK "Future"
-        }
+        project ||--o{ chunk : "has"
 ```
 
 
@@ -233,6 +211,8 @@ No file storage.  User gives Python a filepath that points to a file or folder.
 Python will use that filepath to ingest the files into the DB, but it won't do anything with the original files, since the DB will contain everything we need to know about them.
 
 More info: see [brianstorm](./docs/file-storage-brainstorm.md)
+
+
 
 ## Installation
 Start Postgres:

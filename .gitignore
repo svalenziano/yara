@@ -1,4 +1,5 @@
 .yara_chat_history
+temp.txt
 
 .vscode/
 .claude/
