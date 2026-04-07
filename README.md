@@ -2,22 +2,42 @@
 
 
 ## Overview
-`yara` is an assistant that helps answer questions about documents that you feed it.
+`yara` is an assistant that helps answer questions about documents that you feed it.  `yara` aims to be fast and simple. 
 
-`yara` aims to be fast and simple. 
+It's currently built as a local app that can be used to ingest and query files on the user's filesystem, but could be adapted to serve as the backend for a Web App. 
+
+Inference is provided via the OpenAI API, but could be reconfigured to use another LLM.
+
+Observability is provided by Arize Phoenix, run in the Docker Container alongside Postgres (Database) + pgvector (vector DB plugin for Postgres)
 
 ### Learning Goals
-This app is a learning project.  I will avoid the use of frameworks that abstract away important RAG concepts and LLM interactions that I wish to learn.
+This app is a learning project.  I'm minimizing the use of frameworks that abstract away important RAG concepts and LLM interactions that I want to learn.
 
 Learning objectives:
 1. How to build a RAG app
-2. Building an interactive terminal UI
-3. Modular project architecture (without over-engineering)
-4. RAG methods like structured outputs, tool use, query classification
+2. Modular project architecture (without over-engineering)
+3. RAG methods like structured outputs, tool use, query classification
+4. Observing performance and diagnosing issues using Arize Phoenix
+5. Re-aquaint myself with SQL, Postgres, and psycopg2
+
+
+Building an interactive terminal UI was a secondary concern and was mostly delegated to Claude.
 
 ### Screenshots
 
+#### Home Screen
+![](docs/img/home_screen.png)
 
+#### Create project & ingest data
+![](docs/img/create_project.png)
+
+#### Ask `yara` about your docs
+![](docs/img/simple_question.png)
+
+
+#### Behind the scenes
+Using Arize Phoenix, we can see that the query was enriched to (hopefully) provide more helpful results
+![](docs/img/observability_query-enrichment.png)
 
 ### Limitations
 Currently supported: text files (txt, md, json, etc.)
@@ -27,8 +47,9 @@ Future: PDF
 
 ## Getting started
 
-Start Postgres & pgvector:
+Start Postgres & pgvector using Docker:
 ```bash
+# run this command in the project root directory
 docker compose up -d
 ```
 
@@ -55,7 +76,7 @@ Activate the virtual environment and then start the app
 eval $(poetry env activate)
 python -m yara.main
 ```
-
+Observability is available at http://localhost:6006
 
 
 
@@ -90,8 +111,6 @@ Here's some detail of the ingestion pipeline:
 
 
 ### A bit more detail
-- **History** is augmented anytime responses are received from the User or the LLM.
-- **Why is the routing step necessary?** There are scenarios where you don't want to retrieve data from the Vector DB, e.g. the user is asking a follow-up question about the data that was recently retrieved.  In this scenario, you wouldn't want the history/context being polluted with chunks that are unhelpful
 ```mermaid
 flowchart
 
@@ -111,8 +130,10 @@ d-->e
 f(Print response)
 e-->f
 f-->a
-
 ```
+Some notes on the diagram:
+- **History** is augmented anytime responses are received from the User or the LLM.
+- **Why is the routing step necessary?** There are scenarios where you don't want to retrieve data from the Vector DB, e.g. the user is asking a follow-up question about the data that was recently retrieved.  In this scenario, you wouldn't want the history/context being polluted with chunks that are unhelpful
 
 ### Routing / classification step
 More detail on the 'Routing step' in the above diagram.  Routing logic is a placeholder at the moment.
