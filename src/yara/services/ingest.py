@@ -2,31 +2,43 @@
 Ingest data from filesystem into Database
 """
 
+import logging
 import os
 import random
 from collections.abc import Iterable
 from math import ceil
 
 from yara.config import env
-from yara.db.pgvector import get_chunk_count, get_max_project_id, insert_chunks
+from yara.db.pgvector import (
+    delete_chunks_for_file,
+    get_chunk_count,
+    get_ingested_files,
+    get_or_create_project,
+    insert_chunks,
+    update_project_last_ingested,
+)
 from yara.services.openai_client import generate_embeddings
 from yara.types import Chunk, FileBundle
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+
 MOCK = False  # not implemented
-LIMIT: int | None = 500
+LIMIT: int | None = 400
 VERBOSE = env["VERBOSE"]
-EXTENSIONS = (
-    "md",
-    "txt",
-    "log",
-    "json",
-    "yaml",
-    "toml",
-    "mermaid",
-    "excalidraw",
-    "excalidraw.png",
-    "excalidraw.svg",
-)
+# EXTENSIONS = (
+#     "md",
+#     "txt",
+#     "log",
+#     "json",
+#     "yaml",
+#     "toml",
+#     "mermaid",
+#     "excalidraw",
+#     "excalidraw.png",
+#     "excalidraw.svg",
+# )
 
 
 def _mock_vector() -> list[float]:
@@ -45,7 +57,6 @@ def _get_all_filepaths(
     directory: str,
     extensions: list[str] = ["md", "txt"],
     limit=LIMIT,
-    verbose=VERBOSE,
 ) -> list[str]:
     """
     Walk the directory recursively and return paths
@@ -67,8 +78,7 @@ def _get_all_filepaths(
                 found.append(os.path.join(dirpath, filename))
 
         dirnames[:] = [d for d in dirnames if "." not in d]
-    if verbose:
-        print(f"Found {len(found)} files.")
+    logger.debug("Found %d files in %s", len(found), directory)
     return found
 
 
@@ -129,9 +139,8 @@ def _bundle_files(filepaths: list[str]) -> list[FileBundle]:
             errors.append(e)
             error_paths.append(path)
     if error_paths:
-        print("\nIOErrors while reading files:")
         for p in error_paths:
-            print(p)
+            logger.warning("IOError reading file: %s", p)
         raise IOError(errors)
     return bundles
 
@@ -161,42 +170,75 @@ def _files_to_chunks(files: Iterable[FileBundle]) -> list[Chunk]:
     return chunks
 
 
-def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> None:
+def purge_stale_files(
+    directory_path: str, project_id: int, purge_modified: bool = True
+) -> int:
     """
-    **TODO:** ensure you don't exceed the OpenAI 300k tokens per-request limit
+    Deletes chunks from the DB for files that no longer exist on disk,
+    or whose filesize has changed (when purge_modified=True).
+    Returns count of purged files.
+    """
+    ingested = get_ingested_files(directory_path, project_id)
+    to_purge = []
+    for dir_path, filename, filesize in ingested:
+        full_path = os.path.join(dir_path, filename)
+        if not os.path.isfile(full_path):
+            to_purge.append((dir_path, filename, "stale"))
+        elif purge_modified and os.path.getsize(full_path) != filesize:
+            to_purge.append((dir_path, filename, "modified"))
 
-    - Side effect: push file chunks and metadata to database
-    - Algo:
-        - paths = get all paths
-        - file_bundles = chunkify_files(paths)
-        - for each file bundle:
-            - for each chunk:
-                - insert_chunk (pgvector.py)
-                    - push to DB
-                        filename
-                        dir_path
-                        chunk_text
-                        embedding
-                        chunk_number
-                        total_chunks
-                        filesize
-                        metadata = {}
+    for dir_path, filename, reason in to_purge:
+        logger.debug("Purging %s/%s (reason: %s)", dir_path, filename, reason)
+        delete_chunks_for_file(dir_path, filename, project_id)
+
+    stale = sum(1 for *_, r in to_purge if r == "stale")
+    modified = sum(1 for *_, r in to_purge if r == "modified")
+    logger.info("Purge complete: %d stale, %d modified", stale, modified)
+    return len(to_purge)
+
+
+def _filter_already_ingested(
+    paths: list[str], ingested: set[tuple[str, str, int]]
+) -> list[str]:
     """
-    if verbose:
-        print("\n⌛ Ingesting files...")
+    Returns only paths not already present in the DB with the same filesize.
+    """
+    filtered = []
+    for path in paths:
+        dir_path = os.path.dirname(path)
+        filename = os.path.basename(path)
+        filesize = os.path.getsize(path)
+        if filesize < 1:
+            logger.debug("Skipping empty file: %s/%s", dir_path, filename)
+        elif (dir_path, filename, filesize) in ingested:
+            logger.debug("Skipping already-ingested: %s/%s", dir_path, filename)
+        else:
+            filtered.append(path)
+            logger.info("Queued for ingestion: %s/%s", dir_path, filename)
+    skipped = len(paths) - len(filtered)
+    logger.info("Skip complete: %d unchanged, %d to ingest", skipped, len(filtered))
+    return filtered
+
+
+def ingest_files_to_db(directory_path: str, project_id: int, batch_size=100) -> None:
+    """
+    Chunk and ingest files into the Vector Database
+    """
+    logger.info("Starting ingestion for %s", directory_path)
 
     paths = _get_all_filepaths(directory_path)
-    batches = ceil(len(paths) / batch_size)
+    logger.info("Found %d files", len(paths))
 
-    if verbose:
-        print(f"\nIngesting in {batches} batches.")
+    purge_stale_files(directory_path, project_id, purge_modified=True)
+    ingested = get_ingested_files(directory_path, project_id)
+    paths = _filter_already_ingested(paths, ingested)
 
-    project_id = get_max_project_id() + 1
+    batches = ceil(len(paths) / batch_size) if paths else 0
+    logger.info("Ingesting in %d batch(es)", batches)
+
+    total_inserted = 0
 
     for batch in range(batches):
-        if verbose:
-            print(f"\nHandling batch {batch}")
-
         start = batch * batch_size
         batch_paths = paths[start : start + batch_size]
 
@@ -207,32 +249,47 @@ def ingest_files_to_db(directory_path: str, batch_size=100, verbose=VERBOSE) -> 
             {"filename": chunk.filename, "filepath": chunk.dir_path} for chunk in chunks
         ]
 
-        if verbose:
-            print(f"  Chunk count = {len(texts)}")
+        logger.debug("Batch %d/%d — %d chunks", batch + 1, batches, len(chunks))
 
-        if MOCK:
-            raise Exception("Not implemented")
-        else:
-            embeddings = generate_embeddings(texts, metadata)
+        embeddings = generate_embeddings(texts, metadata)
 
         for embedding in embeddings:
             chunks[embedding.index].embedding = embedding.embedding
 
-        # push chunks to the database
         inserted_rows = insert_chunks(chunks, project_id=project_id)
 
         if inserted_rows != len(chunks):
-            raise Exception(
-                f"  ❌ Expected {len(chunks)} insertions, got {inserted_rows}"
-            )
+            raise Exception(f"Expected {len(chunks)} insertions, got {inserted_rows}")
 
-        if verbose:
-            print(f"  ✅ INSERTED {inserted_rows} rows.")
+        total_inserted += inserted_rows
+        logger.info(
+            "Inserted %d chunks (batch %d/%d)", inserted_rows, batch + 1, batches
+        )
+
+    logger.info(
+        "Ingestion complete: %d files, %d chunks inserted", len(paths), total_inserted
+    )
+    update_project_last_ingested(project_id)
 
 
 if __name__ == "__main__":
-    path = "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/"
-    ingest_files_to_db(
-        path,
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(name)s %(levelname)s %(message)s",
+        handlers=[
+            logging.FileHandler("yara.log"),
+            logging.StreamHandler(),
+        ],
     )
-    print(f"\n📦 Total chunks in DB: {get_chunk_count()}")
+
+    for project_name, path in [
+        (
+            "software",
+            "/mnt/d/My Junk/Obsidian/SV_Personal_3/03 Work/0/Software-Details",
+        ),
+        ("food", "/mnt/d/My Junk/Obsidian/SV_Personal_3/02_Personal/Recipes/"),
+    ]:
+        logger.info("🟢 Let's do this!")
+        proj_id = get_or_create_project(project_name, path)
+        ingest_files_to_db(path, proj_id)
+        logger.info("🟢 Done! Total chunks in DB: %d", get_chunk_count())
