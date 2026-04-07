@@ -1,0 +1,14 @@
+flowchart LR
+    aa(User input)
+    aa-->a
+    a("`**Routing step**
+    LLM Classifies the request, 
+    App routes the request`")
+    a-->b(Q about content on a specific topic)-->c(RAG) --> z
+    a-->k(Q about a new topic) --> l(Re-write/compress history) --> c --> z
+    a-->m(Follow-up Q on retrieved content)-->z
+    a-->i(User is asking for an overview of the files in the system)-->j('fd' or Tree)
+    a-->d(Ingestion, aka User wants to add more content)-->e(Ingestion pipeline)
+    a-->f(User is done)-->Exit
+    a-->g(Something else)-->h(Oops, can't do that.  Here are your options.)-->aa
+    z(LLM)

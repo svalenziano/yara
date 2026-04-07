@@ -4,7 +4,7 @@ from textwrap import dedent
 from opentelemetry import trace
 
 from yara.services.conversation import SYSTEM_PROMPT, Conversation
-from yara.services.get_chunks import query_similar_chunks, format_chunks
+from yara.services.get_chunks import format_chunks, query_similar_chunks
 from yara.services.openai_client import enrich_query, simple_llm_call, streamed_llm_call
 from yara.types import SimilarChunk
 
@@ -41,7 +41,9 @@ def rag_request(conversation: Conversation) -> Generator[str, None, None]:
         query = conversation.get_last_user_query()
         enriched = enrich_query(conversation)
 
-        found: list[SimilarChunk] = query_similar_chunks(enriched)
+        found: list[SimilarChunk] = query_similar_chunks(
+            enriched, project_id=conversation.project_id
+        )
         formatted_chunks: str = format_chunks(found)
         conversation.add_sources(found)
 
