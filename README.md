@@ -82,6 +82,11 @@ python -m yara.main
 ```
 Observability is available at http://localhost:6006
 
+Using `uv` instead of `poetry`?
+You can use `uv run python -m` without activating a virtual environment. For example:
+```
+uv run python -m yara.main
+```
 
 
 
